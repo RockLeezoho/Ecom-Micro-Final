@@ -1,0 +1,59 @@
+version: '3.8'
+services:
+  frontend:
+    build: ../frontend/customer-app
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - api_gateway
+    networks:
+      - app-network
+  api_gateway:
+    build: ../api_gateway
+    ports:
+      - "${GATEWAY_PORT:-8080}:8000"
+    depends_on:
+      - user_service
+    networks:
+      - app-network
+
+#-----------USER SERVICE-----------------
+  user_service:
+    build: 
+      context: ../user_service
+    ports:
+      - "8001:8001"
+    env_file:
+      - ../user_service/.env
+    depends_on:
+      - user_db
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  user_db:
+      image: mysql:8.0
+      ports:
+        - "3307:3306"
+      env_file:
+        - ../user_service/.env
+      volumes:
+        - db-data:/var/lib/mysql
+      networks:
+        - app-network
+      healthcheck:
+        test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:
