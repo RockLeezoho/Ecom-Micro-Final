@@ -46,3 +46,11 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+.gitignore
+
+.cursor/
+.github/
+GEMINI.md
+
+run.sh
