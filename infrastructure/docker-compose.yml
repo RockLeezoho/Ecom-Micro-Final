@@ -1,59 +1,381 @@
-version: '3.8'
+# docker-compose.yml
+# Enterprise Clean Version
+# Each service uses its own .env file
+# No root .env required
+
 services:
+
+  # ==================================================
+  # FRONTEND
+  # ==================================================
   frontend:
-    build: ../frontend/customer-app
+    build:
+      context: ../frontend
+    container_name: frontend
+    env_file:
+      - ../frontend/.env
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "3000:3000"
     depends_on:
-      - api_gateway
-    networks:
-      - app-network
-  api_gateway:
-    build: ../api_gateway
-    ports:
-      - "${GATEWAY_PORT:-8080}:8000"
-    depends_on:
-      - user_service
+      api-gateway:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - app-network
 
-#-----------USER SERVICE-----------------
-  user_service:
-    build: 
-      context: ../user_service
+  # ==================================================
+  # API GATEWAY
+  # ==================================================
+  api-gateway:
+    build:
+      context: ../api-gateway/nginx
+    container_name: api-gateway
+    env_file:
+      - ../api-gateway/nginx/.env
+    ports:
+      - "8080:8000"
+    depends_on:
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      cart-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      shipping-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # USER SERVICE + MYSQL
+  # ==================================================
+  user-service:
+    build:
+      context: ../user-service
+    container_name: user-service
+    env_file:
+      - ../user-service/.env
     ports:
       - "8001:8001"
-    env_file:
-      - ../user_service/.env
     depends_on:
-      - user_db
+      user-db:
+        condition: service_healthy
+    restart: unless-stopped
+    # Developer-friendly volume: mount local code into container so changes take effect without rebuild
+    volumes:
+      - ../user-service:/app
+    environment:
+      - DJANGO_DEBUG=1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
 
-  user_db:
-      image: mysql:8.0
-      ports:
-        - "3307:3306"
-      env_file:
-        - ../user_service/.env
-      volumes:
-        - db-data:/var/lib/mysql
-      networks:
-        - app-network
-      healthcheck:
-        test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
+  user-db:
+    image: mysql:8.0
+    container_name: user-db
+    env_file:
+      - ../user-service/.env
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - user-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # PRODUCT SERVICE + POSTGRES
+  # ==================================================
+  product-service:
+    build:
+      context: ../product-service
+    container_name: product-service
+    env_file:
+      - ../product-service/.env
+    ports:
+      - "8003:8003"
+    depends_on:
+      product-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  product-db:
+    image: postgres:15
+    container_name: product-db
+    env_file:
+      - ../product-service/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # AI SERVICE + NEO4J
+  # ==================================================
+  ai-service:
+    build:
+      context: ../ai-service
+    container_name: ai-service
+    env_file:
+      - ../ai-service/.env
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../ai-service/app:/app/app
+      - ../ai-service/models:/app/models
+      - ../ai-service/artifacts:/app/artifacts
+      - ai-db-data:/app/chromadb
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+    command: >
+      gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 180
+      app.main:app
+      --bind 0.0.0.0:8002
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  neo4j:
+    image: neo4j:5.12-community
+    container_name: neo4j
+    environment:
+      NEO4J_AUTH: neo4j/12345678
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "12345678", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # CART SERVICE + MYSQL
+  # ==================================================
+  cart-service:
+    build:
+      context: ../cart-service
+    container_name: cart-service
+    env_file:
+      - ../cart-service/.env
+    ports:
+      - "8004:8004"
+    depends_on:
+      cart-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  cart-db:
+    image: mysql:8.0
+    container_name: cart-db
+    env_file:
+      - ../cart-service/.env
+    ports:
+      - "3310:3306"
+    volumes:
+      - cart-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # ORDER SERVICE + MYSQL
+  # ==================================================
+  order-service:
+    build:
+      context: ../order-service
+    container_name: order-service
+    env_file:
+      - ../order-service/.env
+    ports:
+      - "8005:8005"
+    depends_on:
+      order-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  order-db:
+    image: mysql:8.0
+    container_name: order-db
+    env_file:
+      - ../order-service/.env
+    ports:
+      - "3309:3306"
+    volumes:
+      - order-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # PAYMENT SERVICE + MYSQL
+  # ==================================================
+  payment-service:
+    build:
+      context: ../payment-service
+    container_name: payment-service
+    env_file:
+      - ../payment-service/.env
+    ports:
+      - "8006:8006"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  payment-db:
+    image: mysql:8.0
+    container_name: payment-db
+    env_file:
+      - ../payment-service/.env
+    ports:
+      - "3308:3306"
+    volumes:
+      - payment-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # SHIPPING SERVICE + MYSQL
+  # ==================================================
+  shipping-service:
+    build:
+      context: ../shipping-service
+    container_name: shipping-service
+    env_file:
+      - ../shipping-service/.env
+    ports:
+      - "8007:8007"
+    depends_on:
+      shipping-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  shipping-db:
+    image: mysql:8.0
+    container_name: shipping-db
+    env_file:
+      - ../shipping-service/.env
+    ports:
+      - "3307:3306"
+    volumes:
+      - shipping-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # REDIS
+  # ==================================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ==================================================
+  # RABBITMQ
+  # ==================================================
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+# ==================================================
+# NETWORK
+# ==================================================
 networks:
   app-network:
     driver: bridge
 
+# ==================================================
+# VOLUMES
+# ==================================================
 volumes:
-  db-data:
+  user-db-data:
+  product-db-data:
+  cart-db-data:
+  order-db-data:
+  payment-db-data:
+  shipping-db-data:
+  neo4j-data:
+  neo4j-logs:
+  ai-db-data:

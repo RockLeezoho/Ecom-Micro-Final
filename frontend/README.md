@@ -1,22 +1,20 @@
-# Frontend Apps
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-- `customer-app`: Customer registration/login UI
-- `management-portal`: Staff/Admin login UI
+# Run and deploy your AI Studio app
 
-## Run customer app
+This contains everything you need to run your app locally.
 
-```bash
-cd frontend/customer-app
-npm install
-npm run dev
-```
+View your app in AI Studio: https://ai.studio/apps/c9760cbb-96e4-433c-961f-cf32c89a91bc
 
-## Run management portal
+## Run Locally
 
-```bash
-cd frontend/management-portal
-npm install
-npm run dev
-```
+**Prerequisites:**  Node.js
 
-Set API base URL for both apps with `VITE_IDENTITY_API_BASE_URL` if your Identity Service is not on `http://localhost:8001/api/v1/auth`.
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
