@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package order_service;
+
+service OrderService {
+  rpc GetBestSellers (BestSellersRequest) returns (BestSellersResponse);
+}
+
+message BestSellersRequest {
+  string category_id = 1;
+}
+
+message BestSellersResponse {
+  repeated string product_ids = 1;
+}

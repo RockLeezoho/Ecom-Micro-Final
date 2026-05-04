@@ -1,0 +1,14 @@
+# Thêm transformers cho AI/ML entity
+transformers
+django>=4.2
+djangorestframework
+psycopg2-binary
+gunicorn>=21.2,<22.0
+python-dotenv
+django-redis
+grpcio
+grpcio-tools
+requests
+django-filter
+cloudinary
+django-cloudinary-storage
