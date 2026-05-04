@@ -1,0 +1,1 @@
+export { registerCustomer } from './userService';

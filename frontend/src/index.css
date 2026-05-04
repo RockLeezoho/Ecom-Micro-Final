@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #008282;
+  --color-primary-light: #F0F9F9;
+  --color-accent: #2DD4BF;
+  --color-text-main: #2D3748;
+  --color-border-theme: #E2E8F0;
+  --color-bg-theme: #F4F7FA;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-theme text-text-main font-sans;
+  }
+}
+
+@layer components {
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 60px 1fr;
+    min-height: 100vh;
+  }
+  
+  .card-dense {
+    @apply bg-white border border-border-theme rounded-lg p-3 transition-shadow;
+  }
+
+  .btn-dense {
+    @apply px-4 py-2 rounded-md font-semibold text-sm transition-all;
+  }
+}
