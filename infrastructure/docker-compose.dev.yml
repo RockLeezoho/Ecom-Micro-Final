@@ -1,0 +1,12 @@
+# Docker Compose Override for Development
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Purpose: Reduce startup time by only building services needed for customer registration
+# Services included: user_db, user_service, api_gateway, frontend
+# Services excluded: product, cart, order, payment, shipping, ai (via reduced depends_on)
+
+services:
+  api-gateway:
+    depends_on:
+      user-service:
+        condition: service_started
