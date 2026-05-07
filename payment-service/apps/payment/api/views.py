@@ -1,6 +1,8 @@
 import json
+import os
 
 import pika
+import requests
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -31,6 +33,21 @@ def publish_payment_success_event(payment):
         pass
 
 
+def notify_order_service(payment, status_value, reason=""):
+    order_service_url = os.getenv("ORDER_SERVICE_URL", "http://order-service:8005/api")
+    payload = {
+        "order_id": str(payment.order_id),
+        "payment_id": str(payment.id),
+        "status": status_value,
+    }
+    if reason:
+        payload["reason"] = reason
+    try:
+        requests.post(f"{order_service_url}/payments/callback/", json=payload, timeout=5)
+    except Exception:
+        pass
+
+
 class PaymentGatewayWebhookAPIView(APIView):
     authentication_classes = []
     permission_classes = []
@@ -51,14 +68,19 @@ class PaymentGatewayWebhookAPIView(APIView):
             payment.paid_at = timezone.now()
             payment.save(update_fields=["status", "external_transaction_id", "paid_at", "updated_at"])
             publish_payment_success_event(payment)
+            notify_order_service(payment, "SUCCESS")
             return Response({"message": "Payment status updated to COMPLETED"}, status=200)
 
         payment.status = PaymentStatus.FAILED
         payment.save(update_fields=["status", "updated_at"])
+        notify_order_service(payment, "FAILED", "Payment failed from webhook")
         return Response({"message": "Payment status updated to FAILED"}, status=200)
 
 
 class PaymentCreateAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
     def post(self, request):
         serializer = PaymentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -77,3 +99,32 @@ class PaymentMethodListAPIView(APIView):
         ]
         serializer = PaymentMethodSerializer(methods, many=True)
         return Response(serializer.data)
+
+
+class PaymentSimulateSuccessAPIView(APIView):
+    def post(self, request):
+        payment_id = request.data.get("payment_id")
+        reference_number = request.data.get("reference_number")
+        payment = None
+        if payment_id:
+            payment = Payment.objects.filter(id=payment_id).first()
+        elif reference_number:
+            payment = Payment.objects.filter(reference_number=reference_number).first()
+        if not payment:
+            return Response({"error": "Payment not found"}, status=404)
+
+        payment.status = PaymentStatus.COMPLETED
+        payment.external_transaction_id = payment.external_transaction_id or f"SIM-{payment.id.hex[:8]}"
+        payment.paid_at = timezone.now()
+        payment.save(update_fields=["status", "external_transaction_id", "paid_at", "updated_at"])
+        publish_payment_success_event(payment)
+        notify_order_service(payment, "SUCCESS")
+        return Response(
+            {
+                "message": "Payment simulated as successful",
+                "payment_id": str(payment.id),
+                "order_id": str(payment.order_id),
+                "status": payment.status,
+            },
+            status=200,
+        )
