@@ -111,6 +111,8 @@ services:
       - ../product-service/.env
     ports:
       - "8003:8003"
+    environment:
+      - REDIS_URL=redis://redis:6379/1
     depends_on:
       product-db:
         condition: service_healthy
@@ -211,6 +213,7 @@ services:
     container_name: cart-db
     env_file:
       - ../cart-service/.env
+    command: --default-authentication-plugin=mysql_native_password
     ports:
       - "3310:3306"
     volumes:
@@ -247,6 +250,7 @@ services:
     container_name: order-db
     env_file:
       - ../order-service/.env
+    command: --default-authentication-plugin=mysql_native_password
     ports:
       - "3309:3306"
     volumes:
@@ -285,6 +289,7 @@ services:
     container_name: payment-db
     env_file:
       - ../payment-service/.env
+    command: --default-authentication-plugin=mysql_native_password
     ports:
       - "3308:3306"
     volumes:
@@ -321,6 +326,7 @@ services:
     container_name: shipping-db
     env_file:
       - ../shipping-service/.env
+    command: --default-authentication-plugin=mysql_native_password
     ports:
       - "3307:3306"
     volumes:
