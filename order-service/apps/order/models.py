@@ -16,20 +16,13 @@ class PaymentMethod(models.TextChoices):
 
 class PaymentStatus(models.TextChoices):
     PENDING = 'PENDING', 'Chờ thanh toán'
+    AWAITING_PAYMENT = 'AWAITING_PAYMENT', 'Đang chờ thanh toán COD'
     PAID = 'PAID', 'Đã thanh toán'
     FAILED = 'FAILED', 'Thanh toán thất bại'
 
 class ShippingMethod(models.TextChoices):
     STANDARD = 'STANDARD', 'Giao hàng tiêu chuẩn'
     EXPRESS = 'EXPRESS', 'Giao hàng hỏa tốc'
-
-class ShippingStatus(models.TextChoices):
-    PREPARING = 'PREPARING', 'Đang chuẩn bị hàng'
-    READY_FOR_PICKUP = 'READY_FOR_PICKUP', 'Sẵn sàng lấy hàng'
-    PICKED_UP = 'PICKED_UP', 'Đã lấy hàng'
-    IN_TRANSIT = 'IN_TRANSIT', 'Đang vận chuyển'
-    DELIVERED = 'DELIVERED', 'Đã giao thành công'
-    FAILED = 'FAILED', 'Giao hàng thất bại'
 
 class Order(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -42,10 +35,6 @@ class Order(models.Model):
     # Trạng thái tổng quát của đơn hàng
     status = models.CharField(
         max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING, db_index=True
-    )
-
-    payment_method = models.CharField(
-        max_length=30, choices=PaymentMethod.choices, default=PaymentMethod.COD
     )
 
     shipping_method = models.CharField(
@@ -62,6 +51,10 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    confirmed_by = models.UUIDField(null=True, blank=True, verbose_name="ID nhân viên xác nhận")
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    is_paid = models.BooleanField(default=False)
     class Meta:
         db_table = 'orders'
         verbose_name = "Đơn hàng"
@@ -86,3 +79,42 @@ class OrderItem(models.Model):
     @property
     def subtotal(self):
         return self.sales_price * self.quantity
+
+class OrderPayment(models.Model):
+    """Lưu chi tiết các giao dịch thanh toán"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
+    
+    payment_method = models.CharField(max_length=30, choices=PaymentMethod.choices)
+    status = models.CharField(
+        max_length=20, 
+        choices=PaymentStatus.choices, 
+        default=PaymentStatus.PENDING
+    )
+    
+    transaction_id = models.CharField(max_length=255, null=True, blank=True)
+    
+    gateway_response = models.JSONField(null=True, blank=True)
+    
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'order_payments'
+
+class OrderTimeline(models.Model):
+    """Lưu lịch sử thay đổi trạng thái (Nhân viên check đơn sẽ ghi vào đây)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='timeline')
+    
+    previous_status = models.CharField(max_length=20)
+    current_status = models.CharField(max_length=20)
+    
+    changed_by = models.UUIDField(verbose_name="ID người thực hiện (User/Staff)")
+    note = models.TextField(blank=True, null=True, verbose_name="Lý do thay đổi/Ghi chú của nhân viên")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'order_timeline'

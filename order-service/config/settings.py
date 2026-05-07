@@ -57,7 +57,7 @@ DATABASES = {
         "USER": os.getenv("DB_USER", "order-user"),
         "PASSWORD": os.getenv("DB_PASSWORD", "123456"),
         "HOST": os.getenv("DB_HOST", "order-db"),
-        "PORT": os.getenv("DB_PORT", "3309"),
+        "PORT": os.getenv("DB_PORT", "3306"),
         "OPTIONS": {
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
         },

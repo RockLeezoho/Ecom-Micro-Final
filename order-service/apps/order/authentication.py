@@ -6,7 +6,6 @@ import jwt
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
-
 @dataclass
 class JWTUser:
     id: str
