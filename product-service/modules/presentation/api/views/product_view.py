@@ -7,6 +7,7 @@ from modules.infrastructure.repositories.product_catalog_repository_impl import 
 from rest_framework.views import APIView
 from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from modules.application.queries.list_products import ListActiveHighRatingProductsQuery, SearchProductsQuery
 from ..serializers.product_detail_read_serializer import ProductDetailReadSerializer
@@ -21,13 +22,16 @@ product_service = ProductService(
 )
 
 # Homepage Aggregator APIView
-class HomepageAggregatorAPIView(APIView):
+class HomepageAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
     def get(self, request):
-        category_slug = request.query_params.get('category')
-        if not category_slug:
-            return Response({"error": "category is required"}, status=400)
+        category_key = request.query_params.get('category')
+        if not category_key:
+            return Response({"error": "category_key is required"}, status=400)
         try:
-            homepage_data = product_service.get_homepage_products(category_slug)
+            homepage_data = product_service.get_homepage_products(category_key)
         except CategoryModel.DoesNotExist:
             return Response({"error": "Category not found"}, status=404)
 

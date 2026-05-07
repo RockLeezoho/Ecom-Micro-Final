@@ -102,3 +102,5 @@ class Electronic(Product):
     warrantyPeriod: Optional[date] = None
     condition: Optional[Condition] = None
     voltage: Optional[float] = None
+
+

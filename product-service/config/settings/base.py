@@ -32,6 +32,7 @@ INSTALLED_APPS = [
 	'django.contrib.sessions',
 	'django.contrib.messages',
 	'django.contrib.staticfiles',
+    'django_filters',
 	'rest_framework',
 	'modules.infrastructure',
 	'modules.presentation',
@@ -47,6 +48,18 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
+
+REST_FRAMEWORK = {
+	'DEFAULT_AUTHENTICATION_CLASSES': (
+		'modules.presentation.api.authentication.InternalServiceAuthentication',
+		'modules.presentation.api.authentication.JWTBearerAuthentication',
+	),
+	'DEFAULT_PERMISSION_CLASSES': (
+		'rest_framework.permissions.IsAuthenticated',
+	),
+}
+
+INTERNAL_SERVICE_TOKEN = os.getenv('INTERNAL_SERVICE_TOKEN', '')
 
 DATABASES = {
 	'default': {

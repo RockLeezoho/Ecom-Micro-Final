@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
 from modules.application.ports.cache_gateway import CacheGateway
 from modules.application.ports.order_gateway import OrderGateway
@@ -39,7 +39,6 @@ class ProductService:
         recommended_ids, bestseller_ids = self._get_homepage_related_ids(category.id)
 
         return HomepageReadModel(
-            category=self._to_category_read_model(category),
             new_arrivals=[self._to_card_read_model(item) for item in new_arrivals],
             popular=[self._to_card_read_model(item) for item in popular],
             recommended=[self._to_card_read_model(item) for item in self.product_catalog_repository.get_products_by_ids(recommended_ids)],
@@ -81,7 +80,14 @@ class ProductService:
                 futures['ai'] = executor.submit(fetch_ai)
             if bestseller_ids is None:
                 futures['order'] = executor.submit(fetch_order)
-            results = {key: future.result(timeout=2) for key, future in futures.items()}
+            results = {}
+            for key, future in futures.items():
+                try:
+                    results[key] = future.result(timeout=2)
+                except FutureTimeoutError:
+                    results[key] = []
+                except Exception:
+                    results[key] = []
 
         if recommended_ids is None:
             recommended_ids = results.get('ai', [])

@@ -57,7 +57,6 @@ class ProductDetailReadModel:
 
 @dataclass(frozen=True)
 class HomepageReadModel:
-    category: CategoryReadModel
     new_arrivals: list[ProductCardReadModel]
     popular: list[ProductCardReadModel]
     recommended: list[ProductCardReadModel]

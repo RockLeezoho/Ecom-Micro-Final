@@ -15,3 +15,14 @@ class CategorySerializer(serializers.ModelSerializer):
 	def get_children(self, obj):
 		children = obj.children.all()
 		return CategorySerializer(children, many=True).data
+
+class CategoryFlatSerializer(serializers.ModelSerializer):
+	"""Flat category serializer without nested children."""
+	parent_id = serializers.SerializerMethodField()
+
+	class Meta:
+		model = CategoryModel
+		fields = ('id', 'name', 'slug', 'description', 'parent_id')
+
+	def get_parent_id(self, obj):
+		return str(obj.parent_id) if obj.parent_id else None

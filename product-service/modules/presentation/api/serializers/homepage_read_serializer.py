@@ -19,7 +19,6 @@ class ProductCardReadSerializer(serializers.Serializer):
 
 
 class HomepageReadSerializer(serializers.Serializer):
-    category = CategoryReadSerializer()
     new_arrivals = ProductCardReadSerializer(many=True)
     popular = ProductCardReadSerializer(many=True)
     recommended = ProductCardReadSerializer(many=True)

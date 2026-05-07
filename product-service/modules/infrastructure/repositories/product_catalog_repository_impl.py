@@ -29,8 +29,9 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
         return self._to_entity(model)
 
     def get_new_arrivals(self, category: Category, limit: int = 10) -> list[Product]:
+        category_ids = self._get_category_scope_ids(category.id)
         models = (
-            ProductModel.objects.filter(category_id=category.id)
+            ProductModel.objects.filter(category_id__in=category_ids)
             .select_related('category', 'brand')
             .prefetch_related('images')
             .order_by('-created_at')[:limit]
@@ -38,8 +39,9 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
         return [self._to_entity(model) for model in models]
 
     def get_popular(self, category: Category, limit: int = 10) -> list[Product]:
+        category_ids = self._get_category_scope_ids(category.id)
         models = (
-            ProductModel.objects.filter(category_id=category.id, rating__gte=4.8)
+            ProductModel.objects.filter(category_id__in=category_ids, rating__gte=4.9)
             .select_related('category', 'brand')
             .prefetch_related('images')
             .order_by('-rating')[:limit]
@@ -62,6 +64,30 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
 
     def increment_view_count(self, product_id: str) -> None:
         ProductModel.objects.filter(id=product_id).update(view_count=F('view_count') + 1)
+
+    def _get_category_scope_ids(self, category_id: str) -> list[str]:
+        # Traverse category tree by levels to include all descendants.
+        collected: list[str] = []
+        seen: set[str] = set()
+        frontier: list[str] = [str(category_id)]
+
+        while frontier:
+            current_ids = [item for item in frontier if item not in seen]
+            frontier = []
+            if not current_ids:
+                continue
+
+            for current_id in current_ids:
+                seen.add(current_id)
+                collected.append(current_id)
+
+            child_ids = [
+                str(item)
+                for item in CategoryModel.objects.filter(parent_id__in=current_ids).values_list('id', flat=True)
+            ]
+            frontier.extend(child_ids)
+
+        return collected
 
     def _to_category(self, model: CategoryModel) -> Category:
         return Category(

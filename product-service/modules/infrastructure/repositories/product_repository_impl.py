@@ -1,11 +1,11 @@
 from typing import List, Optional
-from product_service.modules.domain.repositories.product_repository import ProductRepository
-from product_service.modules.domain.entities.product import Product, Book, Fashion, Electronic
-from product_service.modules.domain.entities.image import ProductImage
-from product_service.modules.domain.entities.category import Category
-from product_service.modules.infrastructure.models.product_model import ProductModel, BookModel, FashionModel, ElectronicModel
-from product_service.modules.infrastructure.models.image_model import ProductImageModel
-from product_service.modules.infrastructure.models.category_model import CategoryModel
+from modules.domain.repositories.product_repository import ProductRepository
+from modules.domain.entities.product import Product, Book, Fashion, Electronic
+from modules.domain.entities.image import ProductImage
+from modules.domain.entities.category import Category
+from modules.infrastructure.models.product_model import ProductModel, BookModel, FashionModel, ElectronicModel
+from modules.infrastructure.models.image_model import ProductImageModel
+from modules.infrastructure.models.category_model import CategoryModel
 from django.db import transaction
 
 class ProductRepositoryImpl(ProductRepository):
