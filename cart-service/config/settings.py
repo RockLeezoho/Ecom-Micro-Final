@@ -50,6 +50,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'apps.cart.authentication.InternalServiceAuthentication',
+        'apps.cart.authentication.JWTBearerAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+INTERNAL_SERVICE_TOKEN = os.getenv('INTERNAL_SERVICE_TOKEN', '')
+
 DATABASES = {
     'default': {
         'ENGINE': os.getenv('MYSQL_ENGINE', 'django.db.backends.mysql'),
@@ -59,7 +71,6 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', 'cart-db'),
         'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES', innodb_strict_mode=1",
             'charset': 'utf8mb4',
         },
     }

@@ -7,8 +7,10 @@ from apps.cart.api.serializers import (
 )
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from apps.cart.authentication import InternalServiceAuthentication, JWTBearerAuthentication
 
 class CartView(APIView):
+    authentication_classes = [InternalServiceAuthentication, JWTBearerAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -17,6 +19,7 @@ class CartView(APIView):
         return Response(serializer.data)
 
 class AddCartItemView(APIView):
+    authentication_classes = [InternalServiceAuthentication, JWTBearerAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
@@ -36,6 +39,7 @@ class AddCartItemView(APIView):
         return Response({'detail': 'Added to cart.'}, status=status.HTTP_201_CREATED)
 
 class UpdateCartItemView(APIView):
+    authentication_classes = [InternalServiceAuthentication, JWTBearerAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
@@ -52,6 +56,7 @@ class UpdateCartItemView(APIView):
             return Response({'detail': 'Item not found in cart.'}, status=status.HTTP_404_NOT_FOUND)
 
 class RemoveCartItemView(APIView):
+    authentication_classes = [InternalServiceAuthentication, JWTBearerAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic

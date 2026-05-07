@@ -17,6 +17,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8004
 
-CMD ["gunicorn", "config.wsgi:application", "-b", "0.0.0.0:8004", "--reload"]
+ENTRYPOINT ["/app/entrypoint.sh"]

@@ -11,6 +11,8 @@ from rest_framework.exceptions import AuthenticationFailed
 class JWTUser:
     id: str
     role: Optional[str] = None
+    is_staff: bool = False
+    is_superuser: bool = False
 
     @property
     def is_authenticated(self) -> bool:
@@ -55,5 +57,30 @@ class JWTBearerAuthentication(BaseAuthentication):
             raise AuthenticationFailed("Token missing user_id")
 
         role = payload.get("role")
-        return JWTUser(id=str(user_id), role=role), token
+        # Populate staff/admin flags from token claims, with role fallbacks
+        is_staff = bool(payload.get("is_staff") or payload.get("staff") or (str(role).lower() == "staff"))
+        is_superuser = bool(payload.get("is_superuser") or payload.get("is_admin") or (str(role).lower() == "admin"))
+
+        return JWTUser(id=str(user_id), role=role, is_staff=is_staff, is_superuser=is_superuser), token
+
+
+class InternalServiceAuthentication(BaseAuthentication):
+    """Authenticate trusted internal service calls via X-Service-Token and X-User-Id."""
+
+    def authenticate(self, request) -> Optional[Tuple[JWTUser, str]]:
+        token = (request.headers.get("X-Service-Token") or "").strip()
+        if not token:
+            return None
+
+        expected = (os.getenv("INTERNAL_SERVICE_TOKEN") or "").strip()
+        if not expected:
+            raise AuthenticationFailed("Internal service token is not configured")
+        if token != expected:
+            raise AuthenticationFailed("Invalid internal service token")
+
+        user_id = (request.headers.get("X-User-Id") or "").strip()
+        if not user_id:
+            raise AuthenticationFailed("Missing X-User-Id for internal service call")
+
+        return JWTUser(id=user_id, role="service"), token
 
