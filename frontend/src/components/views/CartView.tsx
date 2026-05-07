@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../../utils/translate';
 import { motion } from 'motion/react';
 import { Minus, Plus, Trash2, ShoppingBag, ChevronRight, ChevronLeft } from 'lucide-react';
 import { CartItem } from '../../types';
@@ -8,6 +9,7 @@ interface CartViewProps {
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemove: (id: string) => void;
   onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
   onCheckout: () => void;
   onNavigate: (view: any) => void;
 }
@@ -17,6 +19,7 @@ const CartView: React.FC<CartViewProps> = ({
   onUpdateQuantity, 
   onRemove, 
   onToggleSelect,
+  onToggleSelectAll,
   onCheckout,
   onNavigate
 }) => {
@@ -29,13 +32,13 @@ const CartView: React.FC<CartViewProps> = ({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-text-main flex items-center gap-3">
-          <ShoppingBag className="text-primary" size={24} /> Giỏ hàng của tôi
+          <ShoppingBag className="text-primary" size={24} /> {t('my_cart')}
         </h1>
         <button 
           onClick={() => onNavigate({ type: 'HOME' })}
           className="text-primary font-bold text-xs flex items-center hover:opacity-80 transition-all gap-1"
         >
-          <ChevronLeft size={14} /> Quay lại Danh mục
+          <ChevronLeft size={14} /> {t('back_to_catalog')}
         </button>
       </div>
 
@@ -44,8 +47,8 @@ const CartView: React.FC<CartViewProps> = ({
           <div className="w-16 h-16 bg-[#F7FAFC] rounded-full flex items-center justify-center mx-auto mb-4 border border-border-theme">
             <ShoppingBag size={32} className="text-[#CBD5E0]" />
           </div>
-          <h2 className="text-lg font-bold text-text-main mb-1">Giỏ hàng đang trống</h2>
-          <p className="text-xs text-[#718096] mb-6 max-w-xs mx-auto italic">Hãy xem danh mục của chúng tôi để tìm kiếm những sản phẩm chất lượng nhất.</p>
+          <h2 className="text-lg font-bold text-text-main mb-1">{t('empty_cart')}</h2>
+          <p className="text-xs text-[#718096] mb-6 max-w-xs mx-auto italic">{t('empty_cart_desc')}</p>
           <button 
             onClick={() => onNavigate({ type: 'HOME' })}
             className="btn-dense bg-primary text-white hover:bg-opacity-90 transition-all uppercase tracking-wider text-[11px]"
@@ -60,7 +63,13 @@ const CartView: React.FC<CartViewProps> = ({
               <span className="text-[11px] font-bold text-primary">
                 Đã chọn: {selectedItems.length} / {items.length} sản phẩm
               </span>
-              <button className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline">Chọn tất cả</button>
+              <button
+                type="button"
+                onClick={onToggleSelectAll}
+                className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline"
+              >
+                {selectedItems.length === items.length && items.length > 0 ? 'Bỏ chọn tất cả' : t('select_all')}
+              </button>
             </div>
             
             {items.map(item => (

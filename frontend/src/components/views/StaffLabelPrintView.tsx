@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { t } from '../../utils/translate';
 import { motion } from 'motion/react';
 import { ArrowLeft, Printer, FileText, Download, Scale, Truck, User } from 'lucide-react';
 import { Order } from '../../types';
@@ -17,7 +18,7 @@ const StaffLabelPrintView: React.FC<StaffLabelPrintProps> = ({ order, onBack }) 
         onClick={onBack}
         className="flex items-center text-gray-400 hover:text-primary mb-8 transition-colors text-sm font-bold"
       >
-        <ArrowLeft size={16} className="mr-1" /> Quay lại Phân loại
+        <ArrowLeft size={16} className="mr-1" /> {t('back_to_classify')}
       </button>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">

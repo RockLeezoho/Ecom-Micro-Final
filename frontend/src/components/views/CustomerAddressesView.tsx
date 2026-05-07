@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, MapPin } from 'lucide-react';
 import type { User } from '../../types';
 import { createShippingAddress, deleteShippingAddress, listShippingAddresses, type ShippingAddress } from '../../services/customerService';
+import { t } from '../../utils/translate';
 
 interface CustomerAddressesViewProps {
   currentUser: User | null;
@@ -21,7 +22,7 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
       const data = await listShippingAddresses();
       setAddresses(data);
     } catch (err: any) {
-      setError(err.message || 'Không thể tải địa chỉ');
+      setError(err.message || t('addresses_cannot_load'));
     } finally {
       setLoading(false);
     }
@@ -43,33 +44,33 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
       setAddresses((prev) => [created, ...prev]);
       setNewAddress('');
     } catch (err: any) {
-      setError(err.message || 'Không thể thêm địa chỉ');
+      setError(err.message || t('addresses_cannot_add'));
     } finally {
       setSaving(false);
     }
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm('Xóa địa chỉ này?')) return;
+    if (!window.confirm(t('addresses_confirm_delete'))) return;
     setError(null);
     try {
       await deleteShippingAddress(id);
       setAddresses((prev) => prev.filter((item) => item.id !== id));
     } catch (err: any) {
-      setError(err.message || 'Không thể xóa địa chỉ');
+      setError(err.message || t('addresses_cannot_delete'));
     }
   };
 
   if (!currentUser || currentUser.role !== 'customer') {
-    return <div className="p-8 text-center text-gray-400">Vui lòng đăng nhập tài khoản khách hàng.</div>;
+    return <div className="p-8 text-center text-gray-400">{t('please_login_customer')}</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">Địa chỉ giao hàng</h1>
-          <p className="text-gray-500 font-medium">Quản lý danh sách địa chỉ để thanh toán nhanh hơn.</p>
+          <h1 className="text-3xl font-black text-gray-900">{t('addresses_title')}</h1>
+          <p className="text-gray-500 font-medium">{t('addresses_description')}</p>
         </div>
         <div className="h-12 w-12 rounded-2xl bg-primary-light flex items-center justify-center text-primary">
           <MapPin size={22} />
@@ -79,12 +80,12 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
       {error && <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">{error}</div>}
 
       <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-xl shadow-primary/5 mb-6">
-        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Thêm địa chỉ mới</div>
+        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">{t('addresses_add_section')}</div>
         <div className="flex gap-3">
           <input
             value={newAddress}
             onChange={(e) => setNewAddress(e.target.value)}
-            placeholder="VD: 12 Nguyễn Trãi, Thanh Xuân, Hà Nội"
+            placeholder={t('addresses_placeholder')}
             className="flex-1 bg-gray-50 border-none rounded-2xl py-3 px-4 font-bold text-gray-900 focus:ring-2 focus:ring-primary"
           />
           <button
@@ -93,13 +94,13 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
             onClick={add}
             className="bg-primary text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center hover:opacity-90 shadow-lg shadow-primary/20 transition-all"
           >
-            <Plus size={16} className="mr-2" /> {saving ? 'Đang lưu...' : 'Thêm'}
+            <Plus size={16} className="mr-2" /> {saving ? t('addresses_saving') : t('addresses_add_button')}
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="py-20 text-center text-gray-400">Đang tải địa chỉ...</div>
+        <div className="py-20 text-center text-gray-400">{t('addresses_loading')}</div>
       ) : (
         <div className="space-y-4">
           {addresses.map((item) => (
@@ -119,14 +120,9 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
             </div>
           ))}
           {addresses.length === 0 && <div className="py-16 text-center text-gray-400 font-medium">Chưa có địa chỉ nào.</div>}
+                   {addresses.length === 0 && <div className="py-16 text-center text-gray-400 font-medium">{t('addresses_empty')}</div>}
         </div>
       )}
-
-      <div className="mt-6 text-right">
-        <button onClick={load} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
-          Tải lại danh sách
-        </button>
-      </div>
     </div>
   );
 };

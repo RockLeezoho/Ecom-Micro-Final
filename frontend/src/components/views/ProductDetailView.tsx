@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Star, ShoppingCart, ShoppingBag, Heart, ChevronLeft, Truck, ShieldCheck, RefreshCw, Box } from 'lucide-react';
 import { Product } from '../../types';
+import { t } from '../../utils/translate';
 
 interface ProductDetailProps {
   product: Product;
@@ -21,14 +22,14 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(product.image);
 
-  const getCategoryLabel = (cat: string) => {
-    switch(cat) {
-      case 'books': return 'Sách';
-      case 'electronics': return 'Điện tử';
-      case 'fashion': return 'Thời trang';
-      default: return cat;
-    }
-  };
+    const getCategoryLabel = (cat: string) => {
+        switch(cat) {
+            case 'books': return t('category_books');
+            case 'electronics': return t('category_electronics');
+            case 'fashion': return t('category_fashion');
+            default: return cat;
+        }
+    };
 
   const getSubCategoryLabel = (sub: string) => {
     const labels: Record<string, string> = {
@@ -52,7 +53,7 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
         onClick={onBack}
         className="text-[#718096] font-bold text-xs flex items-center hover:text-primary transition-colors gap-1 w-fit"
       >
-        <ChevronLeft size={14} /> Quay lại Danh mục
+        <ChevronLeft size={14} /> {t('back_to_catalog')}
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white border border-border-theme rounded-lg p-6 shadow-sm">
@@ -100,11 +101,11 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                     product.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                 }`}>
-                    {product.stock > 0 ? `${product.stock} Còn hàng` : 'Hết hàng'}
+                    {product.stock > 0 ? t('in_stock', { count: product.stock }) : t('out_of_stock')}
                 </span>
             </div>
 
-            <div className="text-3xl font-bold text-primary mb-6">{product.price.toLocaleString('vi-VN')} VNĐ</div>
+            <div className="text-3xl font-bold text-primary mb-6">{product.price.toLocaleString('vi-VN')} {t('vnd_text')}</div>
             
             <p className="text-[#4A5568] text-sm leading-relaxed mb-6 pb-6 border-b border-border-theme">
                 {product.description}
@@ -114,11 +115,11 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                     <div className="flex items-center gap-2 p-2.5 bg-[#F7FAFC] rounded border border-border-theme">
                         <Truck size={14} className="text-primary" />
-                        <span className="text-[10px] font-bold text-[#718096] uppercase">Miễn phí vận chuyển</span>
+                        <span className="text-[10px] font-bold text-[#718096] uppercase">{t('free_shipping')}</span>
                     </div>
                     <div className="flex items-center gap-2 p-2.5 bg-[#F7FAFC] rounded border border-border-theme">
                         <ShieldCheck size={14} className="text-primary" />
-                        <span className="text-[10px] font-bold text-[#718096] uppercase">Sản phẩm chính hãng</span>
+                        <span className="text-[10px] font-bold text-[#718096] uppercase">{t('genuine_product')}</span>
                     </div>
                 </div>
 
@@ -134,13 +135,13 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
                           onClick={() => onAddToCart(product, quantity)}
                           className="flex-1 btn-dense bg-[#EDF2F7] text-[#2D3748] hover:bg-[#E2E8F0] flex items-center justify-center gap-2"
                       >
-                          <ShoppingCart size={16} /> Thêm giỏ hàng
+                          <ShoppingCart size={16} /> {t('add_to_cart')}
                       </button>
                       <button 
                           onClick={() => onBuyNow(product, quantity)}
                           className="flex-1 btn-dense bg-primary text-white hover:bg-opacity-90 flex items-center justify-center gap-2"
                       >
-                          <ShoppingBag size={16} /> Mua ngay
+                          <ShoppingBag size={16} /> {t('buy_now')}
                       </button>
                       <button className="p-3 bg-[#F7FAFC] text-[#CBD5E0] hover:text-red-500 border border-border-theme rounded-md transition-all">
                           <Heart size={18} />
@@ -152,18 +153,18 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
       </div>
 
       <div className="bg-[#EDF2F7] rounded-lg p-6 border border-border-theme flex justify-between items-center shadow-sm">
-         <div>
-            <h3 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Cơ sở sản xuất</h3>
-            <p className="text-lg font-bold text-text-main italic">Nhập khẩu: {product.origin}</p>
-         </div>
+                <div>
+                <h3 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">{t('manufacturer')}</h3>
+                <p className="text-lg font-bold text-text-main italic">{t('imported_prefix', { value: product.origin })}</p>
+            </div>
          <div className="flex gap-8">
             <div className="text-center">
-                <div className="text-[10px] text-[#718096] uppercase font-bold mb-1">Tồn kho</div>
-                <div className="text-sm font-bold text-text-main">{product.stock} sản phẩm</div>
+                     <div className="text-[10px] text-[#718096] uppercase font-bold mb-1">{t('stock_label')}</div>
+                     <div className="text-sm font-bold text-text-main">{product.stock} {t('add') /* reuse as 'products' target */}</div>
             </div>
             <div className="text-center">
-                 <div className="text-[10px] text-[#718096] uppercase font-bold mb-1">Chất lượng</div>
-                 <div className="text-sm font-bold text-text-main">Chứng nhận 100%</div>
+                      <div className="text-[10px] text-[#718096] uppercase font-bold mb-1">{t('quality_label')}</div>
+                      <div className="text-sm font-bold text-text-main">{t('quality_certified')}</div>
             </div>
          </div>
       </div>

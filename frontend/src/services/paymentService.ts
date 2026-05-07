@@ -3,6 +3,19 @@ export type PaymentMethod = {
   name: string;
 };
 
+export async function simulatePaymentSuccess(payload: { payment_id?: string; reference_number?: string }) {
+  const res = await fetch("/api/payments/simulate-success/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Khong the gia lap thanh toan");
+  }
+  return res.json();
+}
+
 type RawPaymentMethod = {
   code?: string;
   method?: string;

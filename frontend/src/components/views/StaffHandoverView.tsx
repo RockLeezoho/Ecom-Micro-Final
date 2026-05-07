@@ -5,9 +5,10 @@ import { Order } from '../../types';
 interface StaffHandoverProps {
   orders: Order[];
   onBack: () => void;
+  onHandover: (orderId: string, carrierName: string) => Promise<void>;
 }
 
-const StaffHandoverView: React.FC<StaffHandoverProps> = ({ orders, onBack }) => {
+const StaffHandoverView: React.FC<StaffHandoverProps> = ({ orders, onBack, onHandover }) => {
   const [handoverPerson, setHandoverPerson] = useState('Sarah Williams');
   const readyOrders = orders.filter(o => o.carrier && o.status !== 'delivered');
 
@@ -83,6 +84,12 @@ const StaffHandoverView: React.FC<StaffHandoverProps> = ({ orders, onBack }) => 
                         <div className="text-right">
                              <div className="text-xs font-black text-gray-400 uppercase tracking-widest">Đơn vị vận chuyển</div>
                              <div className="text-sm font-black text-gray-700">{order.carrier}</div>
+                             <button
+                                onClick={() => onHandover(order.id, order.carrier || "")}
+                                className="mt-2 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-primary text-white"
+                             >
+                                Xác nhận bàn giao
+                             </button>
                         </div>
                     </div>
                 ))}

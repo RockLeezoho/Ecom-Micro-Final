@@ -2,7 +2,7 @@ export interface Product {
   id: string;
   name: string;
   price: number;
-  category: 'books' | 'electronics' | 'fashion';
+  category: 'sach-luu-tru' | 'thiet-bi-dien-tu' | 'thoi-trang-may-mac';
   subCategory: string;
   rating: number;
   origin: string;
@@ -13,6 +13,11 @@ export interface Product {
   isFavorite?: boolean;
   isSuggested?: boolean;
   categoryId?: string;
+  author?: string;
+  brand?: string;
+  language?: string;
+  color?: string;
+  material?: string;
 }
 
 export interface CartItem extends Product {
@@ -48,7 +53,7 @@ export interface Order {
   shippingFee: number;
   address: string;
   shippingMethod: 'standard' | 'express';
-  paymentMethod: 'VNPay' | 'MOMO' | 'ZaloPay' | 'COD';
+  paymentMethod: 'cod' | 'bank_transfer' | 'e_wallet' | 'credit_card';
   status: 'awaiting_confirmation' | 'awaiting_pickup' | 'awaiting_delivery' | 'delivered' | 'canceled';
   paymentStatus: 'paid' | 'unpaid';
   createdAt: string;
@@ -66,4 +71,11 @@ export interface Review {
   rating: number;
   comment: string;
   createdAt: string;
+}
+
+export interface HomepageData {
+  new_arrivals: Product[];
+  popular: Product[];
+  recommended: Product[];
+  best_sellers: Product[];
 }

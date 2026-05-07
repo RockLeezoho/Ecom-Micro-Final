@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronLeft, Package, MapPin, Truck, CreditCard, Star, MessageSquare } from 'lucide-react';
 import { Order } from '../../types';
+import { t } from '../../utils/translate';
 
 interface OrderDetailsProps {
   order: Order;
@@ -21,15 +22,16 @@ const OrderDetailsView: React.FC<OrderDetailsProps> = ({ order, onBack, onReview
                 onClick={onBack}
                 className="text-gray-400 font-bold text-sm flex items-center hover:text-primary transition-colors mb-4"
             >
-                <ChevronLeft size={16} className="mr-1" /> Quay lại Đơn hàng
+                <ChevronLeft size={16} className="mr-1" /> {t('back_to_orders')}
             </button>
             <h1 className="text-4xl font-black text-gray-900">Chi tiết đơn hàng</h1>
-            <p className="text-primary font-black uppercase text-xs tracking-widest mt-1">Trạng thái: {order.status === 'delivered' ? 'Đã giao' : 'Đang xử lý'}</p>
+            <p className="text-primary font-black uppercase text-xs tracking-widest mt-1">{t('order_details_status_label')} {order.status === 'delivered' ? t('order_details_status_delivered') : t('order_details_status_processing')}</p>
         </div>
         <div className="text-right">
-            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Thanh toán</div>
+            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{t('order_details_payment_label')}</div>
             <div className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest ${order.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                {order.paymentStatus === 'paid' ? 'Đã trả' : 'Chưa trả'}
+                {order.paymentStatus === 'paid' ? t('order_details_payment_paid') : t('order_details_payment_unpaid')}
+                        <h1 className="text-4xl font-black text-gray-900">{t('order_details_title')}</h1>
             </div>
         </div>
       </div>
@@ -55,9 +57,9 @@ const OrderDetailsView: React.FC<OrderDetailsProps> = ({ order, onBack, onReview
                     <span className={`text-[10px] font-black uppercase tracking-tighter mt-3 text-center w-24 ${
                         index <= currentStepIndex ? 'text-primary font-black' : 'text-gray-300'
                     }`}>
-                        {step === 'awaiting_confirmation' ? 'Chờ xác nhận' : 
-                         step === 'awaiting_pickup' ? 'Chờ lấy hàng' :
-                         step === 'awaiting_delivery' ? 'Đang giao' : 'Đã giao'}
+                            {step === 'awaiting_confirmation' ? t('order_status_awaiting_confirmation') : 
+                            step === 'awaiting_pickup' ? t('order_status_awaiting_pickup') :
+                            step === 'awaiting_delivery' ? t('order_status_awaiting_delivery') : t('order_status_delivered')}
                     </span>
                 </div>
             ))}
@@ -68,7 +70,7 @@ const OrderDetailsView: React.FC<OrderDetailsProps> = ({ order, onBack, onReview
         <div className="lg:col-span-2 space-y-8">
             {/* Items */}
             <div className="bg-white rounded-[40px] p-8 border border-gray-100 shadow-xl shadow-primary/5">
-                <h3 className="text-xl font-black text-gray-900 mb-6 underline decoration-accent decoration-4 underline-offset-4">Sản phẩm trong đơn</h3>
+                <h3 className="text-xl font-black text-gray-900 mb-6 underline decoration-accent decoration-4 underline-offset-4">{t('order_details_items_title')}</h3>
                 <div className="divide-y divide-gray-50">
                     {order.items.map(item => (
                         <div key={item.id} className="py-6 flex justify-between items-center group">
@@ -78,13 +80,13 @@ const OrderDetailsView: React.FC<OrderDetailsProps> = ({ order, onBack, onReview
                                 </div>
                                 <div className="min-w-0">
                                     <h4 className="text-base font-black text-gray-900 truncate mb-1">{item.name}</h4>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{item.subCategory} • SL: {item.quantity}</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{item.subCategory} • {t('order_details_quantity_label')} {item.quantity}</p>
                                     {order.status === 'delivered' && (
                                         <button 
                                             onClick={() => onReview(item.id)}
                                             className="mt-3 text-xs font-black text-primary flex items-center hover:bg-primary-light w-fit px-3 py-1.5 rounded-lg transition-colors border border-primary-light"
                                         >
-                                            <MessageSquare size={14} className="mr-1.5" /> Viết nhận xét
+                                            <MessageSquare size={14} className="mr-1.5" /> {t('order_details_review_button')}
                                         </button>
                                     )}
                                 </div>
@@ -101,19 +103,20 @@ const OrderDetailsView: React.FC<OrderDetailsProps> = ({ order, onBack, onReview
              <div className="bg-gray-50 rounded-[40px] p-8 border border-gray-100">
                 <div className="flex items-center mb-6 text-blue-600">
                     <MapPin size={20} className="mr-2" />
-                    <h3 className="text-sm font-black uppercase tracking-widest">Địa chỉ giao hàng</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest">{t('order_details_shipping_address')}</h3>
                 </div>
                 <p className="text-sm font-bold text-gray-700 leading-relaxed mb-8">{order.address}</p>
 
                 <div className="flex items-center mb-6 text-blue-600">
                     <Truck size={20} className="mr-2" />
-                    <h3 className="text-sm font-black uppercase tracking-widest">Phương thức vận chuyển</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest">{t('order_details_shipping_method')}</h3>
+                                <p className="text-sm font-bold text-gray-700 capitalize mb-8">{order.shippingMethod === 'standard' ? t('order_details_shipping_standard') : t('order_details_shipping_express')}</p>
                 </div>
                 <p className="text-sm font-bold text-gray-700 capitalize mb-8">{order.shippingMethod === 'standard' ? 'Giao hàng tiêu chuẩn' : 'Giao hàng hỏa tốc'}</p>
 
                 <div className="flex items-center mb-6 text-blue-600">
                     <CreditCard size={20} className="mr-2" />
-                    <h3 className="text-sm font-black uppercase tracking-widest">Phương thức thanh toán</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest">{t('order_details_payment_method')}</h3>
                 </div>
                 <p className="text-sm font-bold text-gray-700 mb-4">{order.paymentMethod}</p>
              </div>
@@ -122,15 +125,15 @@ const OrderDetailsView: React.FC<OrderDetailsProps> = ({ order, onBack, onReview
              <div className="bg-primary text-white rounded-[40px] p-8 shadow-xl shadow-primary/20">
                 <div className="space-y-4 mb-8">
                     <div className="flex justify-between text-accent font-bold text-xs uppercase tracking-widest">
-                        <span>Tổng cộng tiền hàng</span>
+                        <span>{t('order_details_total_items')}</span>
                         <span>{order.totalAmount.toLocaleString('vi-VN')} VNĐ</span>
                     </div>
                     <div className="flex justify-between text-blue-200 font-bold text-xs uppercase tracking-widest">
-                        <span>Phí vận chuyển</span>
+                        <span>{t('order_details_shipping_fee')}</span>
                         <span>{order.shippingFee.toLocaleString('vi-VN')} VNĐ</span>
                     </div>
                     <div className="pt-4 border-t border-blue-500 flex justify-between items-center">
-                        <span className="text-lg font-black">Tổng thanh toán</span>
+                        <span className="text-lg font-black">{t('order_details_total_payment')}</span>
                         <span className="text-3xl font-black text-white">{(order.totalAmount + order.shippingFee).toLocaleString('vi-VN')} VNĐ</span>
                     </div>
                 </div>

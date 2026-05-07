@@ -20,7 +20,8 @@ async function request(path: string, init?: RequestInit) {
 }
 
 export async function createOrder(payload: {
-  address_id: string;
+  address_id?: string;
+  address_text?: string;
   payment_method: "COD" | "BANK_TRANSFER" | "E_WALLET" | "CREDIT_CARD";
   shipping_method: "STANDARD" | "EXPRESS";
   items: Array<{ product_id: string; quantity: number; price: number }>;
@@ -33,6 +34,37 @@ export async function createOrder(payload: {
 
 export async function listOrders() {
   return request("/");
+}
+
+export async function confirmOrder(orderId: string, note?: string) {
+  return request(`/${orderId}/confirm-order/`, {
+    method: "POST",
+    body: JSON.stringify({ note: note || "" }),
+  });
+}
+
+export async function rejectOrder(orderId: string, note?: string) {
+  return request(`/${orderId}/reject-order/`, {
+    method: "POST",
+    body: JSON.stringify({ note: note || "" }),
+  });
+}
+
+export async function createShipment(
+  orderId: string,
+  payload: { weight: number; length: number; width: number; height: number }
+) {
+  return request(`/${orderId}/create-shipment/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function handoverToCarrier(orderId: string, carrierName: string, note?: string) {
+  return request(`/${orderId}/handover-to-carrier/`, {
+    method: "POST",
+    body: JSON.stringify({ carrier_name: carrierName, note: note || "" }),
+  });
 }
 
 export async function confirmPacking(

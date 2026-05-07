@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, Trash2, Edit, User, Mail, CreditCard, Phone } from 'lucide-react';
 import { User as UserType } from '../../types';
+import { t } from '../../utils/translate';
 
 interface AdminStaffListProps {
   staffList: UserType[];
@@ -31,14 +32,14 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 space-y-4 md:space-y-0">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">Quản lý nhân viên</h1>
-          <p className="text-gray-500 font-medium">Quản lý các thành viên, vai trò và tình trạng làm việc của họ.</p>
+          <h1 className="text-3xl font-black text-gray-900">{t('manage_staff')}</h1>
+          <p className="text-gray-500 font-medium">{t('manage_staff_desc')}</p>
         </div>
         <button 
            onClick={onAdd}
            className="bg-primary text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center hover:opacity-90 shadow-lg shadow-primary/20 transition-all font-bold"
         >
-          <Plus size={18} className="mr-2" /> Đăng ký nhân viên mới
+          <Plus size={18} className="mr-2" /> {t('create_staff')}
         </button>
       </div>
 
@@ -46,7 +47,7 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
         <div className="relative flex-1 md:max-w-md">
           <input 
             type="text"
-            placeholder="Tìm theo tên hoặc mã nhân viên..."
+            placeholder={t('search_staff_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-gray-50 border-none rounded-xl py-3 pl-10 pr-4 text-sm font-medium focus:ring-2 focus:ring-primary shadow-sm transition-all"
@@ -55,7 +56,7 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
         </div>
         
         <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">Hình thức:</span>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">{t('work_type_label')}</span>
             <div className="flex p-1 bg-gray-50 rounded-xl">
             {(['all', 'Full-time', 'Part-time'] as const).map(type => (
                 <button
@@ -65,7 +66,7 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
                     filterType === type ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-700'
                 }`}
                 >
-                {type === 'all' ? 'Tất cả' : type === 'Full-time' ? 'Toàn thời gian' : 'Bán thời gian'}
+                {type === 'all' ? t('filter_all') : type === 'Full-time' ? t('full_time') : t('part_time')}
                 </button>
             ))}
             </div>
@@ -80,7 +81,7 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {loading ? (
-          <div className="col-span-full py-24 text-center text-gray-400 font-medium">Đang tải danh sách nhân viên...</div>
+          <div className="col-span-full py-24 text-center text-gray-400 font-medium">{t('loading_staff_list')}</div>
         ) : filteredStaff.length > 0 ? (
           filteredStaff.map(staff => (
             <div key={staff.id} className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-xl shadow-primary/5 hover:border-accent transition-all group">
@@ -97,7 +98,7 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
                     </button>
                     <button 
                         onClick={() => {
-                            if (window.confirm(`Bạn có chắc chắn muốn xóa nhân viên "${staff.name}" không?`)) {
+                            if (window.confirm(t('confirm_delete_staff', { name: staff.name }))) {
                                 onDelete(staff.id);
                             }
                         }}
@@ -118,17 +119,17 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
                   <Mail size={16} className="mr-3 text-gray-300" /> {staff.email}
                 </div>
                 <div className="flex items-center text-sm text-gray-500 font-medium">
-                  <Phone size={16} className="mr-3 text-gray-300" /> {staff.phoneNumber || 'Chưa cập nhật'}
+                  <Phone size={16} className="mr-3 text-gray-300" /> {staff.phoneNumber || t('not_updated')}
                 </div>
                 <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                     staff.employmentType === 'Full-time' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-orange-50 text-orange-600 border border-orange-100'
                 }`}>
-                    {staff.employmentType === 'Full-time' ? 'Toàn thời gian' : 'Bán thời gian'}
+                    {staff.employmentType === 'Full-time' ? t('full_time') : t('part_time')}
                 </div>
                 <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                   staff.isActive ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-100 text-gray-500 border border-gray-200'
                 }`}>
-                  {staff.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động'}
+                  {staff.isActive ? t('active') : t('inactive')}
                 </div>
               </div>
               
@@ -142,7 +143,7 @@ const AdminStaffListView: React.FC<AdminStaffListProps> = ({ staffList, loading 
              <div className="inline-flex p-6 bg-gray-50 rounded-full mb-6">
                 <Search size={48} className="text-gray-200" />
              </div>
-             <h3 className="text-xl font-bold text-gray-400">Không tìm thấy thành viên nào phù hợp.</h3>
+             <h3 className="text-xl font-bold text-gray-400">{t('no_staff_found')}</h3>
           </div>
         )}
       </div>

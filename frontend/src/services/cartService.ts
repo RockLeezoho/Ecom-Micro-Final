@@ -1,6 +1,6 @@
 import { getAccessToken } from "./authService";
 
-const CART_API_BASE = "/api/cart";
+const CART_API_BASE = import.meta.env.VITE_CART_API_BASE || "/api/cart";
 
 export type ApiCartItem = {
   product_id: string;
@@ -26,7 +26,8 @@ async function request(path: string, init?: RequestInit) {
     throw new Error(data.error || data.detail || data.message || "Yeu cau that bai");
   }
   if (res.status === 204) return null;
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 export function hasCartSession() {

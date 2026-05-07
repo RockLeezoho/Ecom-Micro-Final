@@ -8,6 +8,7 @@ import {
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import { motion, AnimatePresence } from 'motion/react';
 import { User as UserType, CartItem, Product } from '../../types';
+import { Category } from '../../services/productService';
 import { recommendProducts } from '../../services/aiService';
 import Footer from '../Footer';
 import ChatAI from '../ChatAI';
@@ -18,9 +19,10 @@ interface CustomerLayoutProps {
   currentUser: UserType | null;
   cart: CartItem[];
   onLogout: () => void;
+  categories?: Category[];
 }
 
-const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, cart, onLogout }) => {
+const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, cart, onLogout, categories = [] }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,8 +70,15 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
     const value = e.target.value;
     setSearchValue(value);
     setShowDropdown(true);
-    fetchSuggestions(value);
   };
+
+  useEffect(() => {
+    if (!showDropdown) return;
+    const timer = window.setTimeout(() => {
+      fetchSuggestions(searchValue);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchValue, showDropdown]);
 
   // Đóng dropdown khi blur khỏi input (delay để click chọn)
   const handleSearchBlur = () => {
@@ -80,7 +89,7 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
   const handleSuggestionClick = (product: Product) => {
     setSearchValue(product.name);
     setShowDropdown(false);
-    navigate(`/product/${product.id}`);
+    navigate(`/products/${product.id}`);
   };
 
   // Đóng user dropdown khi click ra ngoài hoặc nhấn Escape
@@ -104,30 +113,24 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
     };
   }, [isUserMenuOpen]);
 
-  const categories = [
-      { 
-        id: 'books', 
-        label: 'Sách & Lưu trữ', 
-        icon: BookOpen, 
-        subs: ['Giáo trình', 'Tiểu thuyết', 'Truyện tranh'] 
-      },
-      { 
-        id: 'electronics', 
-        label: 'Thiết bị điện tử', 
-        icon: Smartphone, 
-        subs: ['Điện thoại', 'Laptop', 'Tủ lạnh'] 
-      },
-      { 
-        id: 'fashion', 
-        label: 'Thời trang & May mặc', 
-        icon: Shirt, 
-        subs: ['Áo', 'Quần', 'Giày dép'] 
-      },
-  ];
+  // Use categories from props (fetched via API endpoint /api/categories/all/)
+  const categoryList = categories || [];
   const activePath = location.pathname;
   const urlTab = new URLSearchParams(location.search).get('tab');
-  const selectedDropdownCategory =
-    urlTab === 'books' || urlTab === 'electronics' || urlTab === 'fashion' ? urlTab : 'books';
+  // Default to first parent category slug if available, otherwise use empty string
+  const selectedDropdownCategory = urlTab || 'sach-luu-tru';
+  const currentCategoryObject = categoryList.find(cat => cat.slug === selectedDropdownCategory);
+  const dropdownLabel = currentCategoryObject ? currentCategoryObject.name : "Sách";
+  
+  console.log('[CustomerLayout] Category state', {
+    categoryCount: categoryList.length,
+    categoryList: categoryList.map(c => ({ id: c.id, name: c.name, slug: c.slug })),
+    location_search: location.search,
+    urlTab,
+    selectedDropdownCategory,
+    currentCategoryObject: currentCategoryObject ? { name: currentCategoryObject.name, slug: currentCategoryObject.slug } : null,
+  });
+  
   const navLinkClass = (path: string) =>
     `hover:text-primary transition-colors ${activePath === path ? 'text-primary border-b-2 border-primary pb-0.5' : ''}`;
 
@@ -226,14 +229,14 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
                      className="flex items-center gap-2 bg-gray-50 p-1 pr-3 rounded-full border border-gray-100 shadow-sm"
                    >
                      <div className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-black overflow-hidden text-[10px]">
-                        {currentUser.avatar_url ? (
+                        {(currentUser.avatarUrl || (currentUser as any).avatar_url) ? (
                           <img 
-                            src={currentUser.avatar_url} 
+                            src={currentUser.avatarUrl || (currentUser as any).avatar_url} 
                             alt={currentUser.username}
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          currentUser.username[0].toUpperCase()
+                          (currentUser.username?.[0] || currentUser.name?.[0] || 'U').toUpperCase()
                         )}
                      </div>
                      <span className="text-[10px] max-w-[80px] truncate text-gray-700">{currentUser.username}</span>
@@ -317,29 +320,45 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
                       className="absolute top-full left-0 w-[800px] bg-white shadow-2xl z-40 border-x border-b border-border-theme rounded-b-2xl overflow-hidden shadow-primary/10"
                     >
                       <div className="grid grid-cols-3 p-8 gap-8">
-                        {categories.map((cat) => (
-                          <div key={cat.id}>
-                            <h5 className="flex items-center gap-2 text-primary font-black text-sm mb-4 pb-2 border-b-2 border-primary-light uppercase tracking-tight">
-                              <cat.icon size={18} />
-                              {cat.label}
-                            </h5>
-                            <div className="flex flex-col gap-3">
-                              {cat.subs.map(sub => (
-                                <button
-                                  key={sub}
-                                  className="text-xs text-gray-500 hover:text-primary font-bold transition-all hover:translate-x-1 text-left"
-                                  onClick={() => {
-                                    setIsMenuOpen(false);
-                                    navigate(`/category/${cat.id}/${encodeURIComponent(sub)}`);
-                                  }}
-                                >
-                                  {sub}
-                                </button>
-                              ))}
-                              <button className="text-[10px] text-accent font-black uppercase tracking-widest mt-2 hover:underline" onClick={() => setIsMenuOpen(false)}>Xem tất cả</button>
+                        {categoryList.map((cat) => {
+                          const getCategoryIcon = (slug: string) => {
+                            const slugLower = slug.toLowerCase();
+                            if (slugLower.includes('sach-luu-tru') || slugLower.includes('book')) {
+                              return <BookOpen size={18} />;
+                            }
+                            if (slugLower.includes('thiet-bi-dien-tu') || slugLower.includes('electronic')) {
+                              return <Smartphone size={18} />;
+                            }
+                            if (slugLower.includes('thoi-trang-may-mac') || slugLower.includes('fashion')) {
+                              return <Shirt size={18} />;
+                            }
+                            return <Grid size={18} />;
+                          };
+
+                          return (
+                            <div key={cat.id}>
+                              <h5 className="flex items-center gap-2 text-primary font-black text-sm mb-4 pb-2 border-b-2 border-primary-light uppercase tracking-tight">
+                                {getCategoryIcon(cat.slug)}
+                                {cat.name}
+                              </h5>
+                              <div className="flex flex-col gap-3">
+                                {cat.children && cat.children.map(sub => (
+                                  <button
+                                    key={sub.id}
+                                    className="text-xs text-gray-500 hover:text-primary font-bold transition-all hover:translate-x-1 text-left"
+                                    onClick={() => {
+                                      setIsMenuOpen(false);
+                                      navigate(`/category/${cat.slug}/${encodeURIComponent(sub.slug)}`);
+                                    }}
+                                  >
+                                    {sub.name}
+                                  </button>
+                                ))}
+                                <button className="text-[10px] text-accent font-black uppercase tracking-widest mt-2 hover:underline" onClick={() => setIsMenuOpen(false)}>Xem tất cả</button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <div className="bg-gray-50 p-4 px-8 border-t border-border-theme flex items-center justify-between">
                          <div className="flex items-center gap-6">
@@ -370,30 +389,43 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
 
           {/* Secondary Features: Scroll Dropdown */}
           <div className="hidden lg:flex items-center gap-5 text-primary">
-             <ScrollDropdown
-               tabs={[
-                 {
-                   id: 'books',
-                   label: 'Sách',
-                   icon: <BookOpen size={14} />,
-                 },
-                 {
-                   id: 'electronics',
-                   label: 'Điện tử',
-                   icon: <Smartphone size={14} />,
-                 },
-                 {
-                   id: 'fashion',
-                   label: 'Thời trang',
-                   icon: <Shirt size={14} />,
-                 },
-               ]}
-               value={selectedDropdownCategory}
-               onSelect={(catId) => {
-                 navigate(`/?tab=${encodeURIComponent(catId)}`);
-               }}
-               triggerLabel="Tài khoản ưu đãi"
-             />
+             {(() => {
+               const tabs = categoryList.map((cat) => {
+                 const getIcon = (slug: string) => {
+                   const slugLower = cat.slug.toLowerCase();
+                   if (slugLower.includes('sach-luu-tru') || slugLower.includes('book')) {
+                     return <BookOpen size={14} />;
+                   }
+                   if (slugLower.includes('thiet-bi-dien-tu') || slugLower.includes('electronic')) {
+                     return <Smartphone size={14} />;
+                   }
+                   if (slugLower.includes('thoi-trang-may-mac') || slugLower.includes('fashion')) {
+                     return <Shirt size={14} />;
+                   }
+                   return <Grid size={14} />;
+                 };
+                 return {
+                   id: cat.slug,
+                   label: cat.name,
+                   icon: getIcon(cat.slug),
+                 };
+               });
+               console.log('[CustomerLayout] ScrollDropdown tabs built', {
+                 tabCount: tabs.length,
+                 tabs: tabs.map(t => ({ id: t.id, label: t.label })),
+               });
+               return (
+                 <ScrollDropdown
+                   tabs={tabs}
+                   value={selectedDropdownCategory}
+                   onSelect={(catId) => {
+                     console.log('[ScrollDropdown] onSelect triggered', { catId, timestamp: new Date().toISOString() });
+                     navigate(`/?tab=${encodeURIComponent(catId)}`);
+                   }}
+                   triggerLabel={dropdownLabel}
+                 />
+               );
+             })()}
           </div>
         </div>
       </nav>

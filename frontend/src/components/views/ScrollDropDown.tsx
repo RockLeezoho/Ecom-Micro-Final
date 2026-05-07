@@ -67,8 +67,14 @@ const ScrollDropdown: React.FC<ScrollDropdownProps> = ({
   };
 
   const handleCategoryClick = (tabId: string) => {
+    console.log('[ScrollDropdown] handleCategoryClick', { tabId, onSelectDefined: !!onSelect });
     handleTabChange(tabId);
-    onSelect?.(tabId);
+    if (onSelect) {
+      console.log('[ScrollDropdown] calling onSelect', tabId);
+      onSelect(tabId);
+    } else {
+      console.warn('[ScrollDropdown] onSelect callback is undefined!');
+    }
     setOpen(false);
   };
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { registerCustomer} from '../../services/registerService';
+import { t } from '../../utils/translate';
 import { motion } from 'motion/react';
 import { Mail, Lock, UserPlus, ChevronLeft, User, ShieldCheck } from 'lucide-react';
 
@@ -9,11 +10,11 @@ interface RegisterViewProps {
 }
 
 const REGISTRATION_ERROR_MESSAGES: Record<number, string> = {
-  400: 'Thông tin đăng ký chưa hợp lệ. Vui lòng kiểm tra lại các trường bị báo lỗi.',
-  401: 'Phiên đăng ký không hợp lệ. Vui lòng tải lại trang và thử lại.',
-  403: 'Bạn không có quyền thực hiện thao tác này.',
-  409: 'Tên đăng nhập hoặc email đã tồn tại. Vui lòng chọn thông tin khác.',
-  500: 'Hệ thống đang gặp sự cố khi đăng ký. Vui lòng thử lại sau.',
+  400: 'registration_error_400',
+  401: 'registration_error_401',
+  403: 'registration_error_403',
+  409: 'registration_error_409',
+  500: 'registration_error_500',
 };
 
 function extractFieldErrors(source: any): Record<string, string[]> {
@@ -36,7 +37,7 @@ function getRegistrationErrorMessage(error: any) {
   const body = error?.body;
 
   if (status && REGISTRATION_ERROR_MESSAGES[status]) {
-    return REGISTRATION_ERROR_MESSAGES[status];
+    return t(REGISTRATION_ERROR_MESSAGES[status]);
   }
 
   if (body && typeof body === 'object' && !Array.isArray(body) && typeof body.message === 'string') {
@@ -47,7 +48,7 @@ function getRegistrationErrorMessage(error: any) {
     return error.message;
   }
 
-  return 'Đăng ký thất bại. Vui lòng thử lại sau.';
+  return t('registration_failed');
 }
 
 const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) => {
@@ -68,11 +69,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
     e.preventDefault();
     setError(null);
     if (!username || !email || !password || !phone) {
-      setError('Vui lòng nhập đầy đủ các trường bắt buộc.');
+      setError(t('please_fill_required'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp.');
+      setError(t('passwords_do_not_match'));
       return;
     }
     setLoading(true);
@@ -111,10 +112,10 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
       >
         <div className="text-center mb-8">
           <img src="/logo_becshop.png" alt="BECShop Logo" className="w-15 h-15 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-text-main">BECShop Commerce</h1>
-          <p className="text-[10px] text-[#718096] uppercase tracking-widest font-black mt-1">
-            Đăng ký tài khoản
-          </p>
+                  <h1 className="text-xl font-bold text-text-main">{t('app_title')}</h1>
+                  <p className="text-[10px] text-[#718096] uppercase tracking-widest font-black mt-1">
+                    {t('register_title')}
+                  </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -131,7 +132,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                    placeholder="Tên đăng nhập"
+                    placeholder={t('username_placeholder')}
                     required
                   />
                 </div>
@@ -150,7 +151,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                    placeholder="ten@vidu.com"
+                    placeholder={t('email_placeholder') || 'ten@vidu.com'}
                     required
                   />
                 </div>
@@ -168,7 +169,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={t('password_placeholder')}
                     className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
                     required
                   />
@@ -187,7 +188,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                     type="password"
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={t('password_placeholder')}
                     className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
                     required
                   />
@@ -203,7 +204,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-4 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                    placeholder="Số điện thoại"
+                    placeholder={t('phone_placeholder') || 'Số điện thoại'}
                     required
                   />
                 </div>
@@ -214,7 +215,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
             </div>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">Họ đệm</label>
+                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">{t('last_name_label')}</label>
                 <input 
                   type="text"
                   value={firstName}
@@ -227,7 +228,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.first_name.join(', ')}</p>
               )}
               <div>
-                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">Tên</label>
+                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">{t('first_name_label')}</label>
                 <input 
                   type="text"
                   value={lastName}
@@ -240,7 +241,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.last_name.join(', ')}</p>
               )}
               <div>
-                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">Ngày sinh</label>
+                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">{t('date_of_birth_label')}</label>
                 <input 
                   type="date"
                   value={dob}
@@ -253,16 +254,16 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.date_of_birth.join(', ')}</p>
               )}
               <div>
-                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">Giới tính</label>
+                <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">{t('gender_label')}</label>
                 <select
                   value={gender}
                   onChange={e => setGender(e.target.value)}
                   className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-4 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
                 >
-                  <option value="">Chọn giới tính</option>
-                  <option value="male">Nam</option>
-                  <option value="female">Nữ</option>
-                  <option value="other">Khác</option>
+                  <option value="">{t('gender_not_selected')}</option>
+                  <option value="male">{t('gender_male')}</option>
+                  <option value="female">{t('gender_female')}</option>
+                  <option value="other">{t('gender_other')}</option>
                 </select>
               </div>
               {fieldErrors.gender && (

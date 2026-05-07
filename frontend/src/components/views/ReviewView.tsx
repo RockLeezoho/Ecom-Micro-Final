@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Star, MessageSquare, ChevronLeft, Send, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
+import { t } from '../../utils/translate';
 import { Product } from '../../types';
 
 interface ReviewViewProps {
@@ -24,15 +25,15 @@ const ReviewView: React.FC<ReviewViewProps> = ({ product, onBack, onSubmit }) =>
         onClick={onBack}
         className="text-gray-400 font-bold text-sm flex items-center hover:text-primary transition-colors mb-8"
       >
-        <ChevronLeft size={16} className="mr-1" /> Quay lại Đơn hàng
+        <ChevronLeft size={16} className="mr-1" /> {t('back_to_orders')}
       </button>
 
       <div className="text-center mb-12">
         <div className="inline-flex p-4 bg-yellow-50 text-yellow-500 rounded-full mb-6">
             <Sparkles size={32} />
         </div>
-        <h1 className="text-4xl font-black text-gray-900 mb-2">Chia sẻ trải nghiệm</h1>
-        <p className="text-gray-500 font-medium italic">Phản hồi của bạn giúp người khác đưa ra lựa chọn tốt hơn.</p>
+        <h1 className="text-4xl font-black text-gray-900 mb-2">{t('review_title')}</h1>
+        <p className="text-gray-500 font-medium italic">{t('review_description')}</p>
       </div>
 
       <div className="bg-white rounded-[40px] p-10 border border-gray-100 shadow-xl shadow-primary/5">
@@ -49,7 +50,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({ product, onBack, onSubmit }) =>
 
          <form onSubmit={handleSubmit} className="space-y-10">
             <div className="text-center">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-6">Chất lượng sản phẩm như thế nào?</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-6">{t('review_quality_label')}</label>
                 <div className="flex justify-center space-x-3">
                     {[1, 2, 3, 4, 5].map(star => (
                         <button
@@ -70,12 +71,12 @@ const ReviewView: React.FC<ReviewViewProps> = ({ product, onBack, onSubmit }) =>
             </div>
 
             <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-4 ml-1">Viết đánh giá của bạn</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-4 ml-1">{t('review_form_label')}</label>
                 <div className="relative">
                     <textarea 
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
-                        placeholder="Cho chúng tôi biết bạn thích hoặc chưa hài lòng về điều gì..."
+                        placeholder={t('review_placeholder')}
                         className="w-full bg-gray-50 border-none rounded-3xl p-6 text-base font-medium focus:ring-2 focus:ring-primary transition-all outline-none resize-none h-40"
                         required
                     />
@@ -87,7 +88,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({ product, onBack, onSubmit }) =>
                 type="submit"
                 className="w-full bg-primary text-white py-5 rounded-3xl font-black text-sm uppercase tracking-widest flex items-center justify-center hover:opacity-90 shadow-xl shadow-primary/20 transition-all transition-transform active:scale-95"
             >
-                Gửi đánh giá <Send size={18} className="ml-2" />
+                {t('review_submit_button')} <Send size={18} className="ml-2" />
             </button>
          </form>
       </div>

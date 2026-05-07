@@ -3,6 +3,7 @@ import { mockProducts } from '../../data/mockData';
 import { useParams } from 'react-router-dom';
 import { Product } from '../../types';
 import { Heart, Star } from 'lucide-react';
+import { t } from '../../utils/translate';
 
 interface CategoryProductListViewProps {
   products: Product[];
@@ -15,32 +16,32 @@ interface CategoryProductListViewProps {
 
 const CATEGORY_FILTERS: Record<string, { label: string; fields: { key: string; label: string; type?: string; options?: string[] }[] }> = {
   books: {
-    label: 'Sách',
+    label: t('category_books'),
     fields: [
-      { key: 'origin', label: 'Xuất xứ' },
+      { key: 'origin', label: t('origin') },
       { key: 'language', label: 'Ngôn ngữ' },
       { key: 'author', label: 'Tác giả' },
-      { key: 'price', label: 'Giá', type: 'range' },
+      { key: 'price', label: t('price'), type: 'range' },
       { key: 'rating', label: 'Đánh giá', type: 'rating' },
     ],
   },
   electronics: {
-    label: 'Thiết bị điện tử',
+    label: t('category_electronics'),
     fields: [
-      { key: 'origin', label: 'Xuất xứ' },
+      { key: 'origin', label: t('origin') },
       { key: 'brand', label: 'Thương hiệu' },
       { key: 'color', label: 'Màu sắc' },
-      { key: 'price', label: 'Giá', type: 'range' },
+      { key: 'price', label: t('price'), type: 'range' },
       { key: 'rating', label: 'Đánh giá', type: 'rating' },
     ],
   },
   fashion: {
-    label: 'Thời trang & May mặc',
+    label: t('category_fashion'),
     fields: [
-      { key: 'origin', label: 'Xuất xứ' },
+      { key: 'origin', label: t('origin') },
       { key: 'brand', label: 'Thương hiệu' },
       { key: 'material', label: 'Chất liệu' },
-      { key: 'price', label: 'Giá', type: 'range' },
+      { key: 'price', label: t('price'), type: 'range' },
       { key: 'rating', label: 'Đánh giá', type: 'rating' },
     ],
   },
@@ -93,14 +94,14 @@ const ProductCard: React.FC<{
       <div className="absolute top-2 left-2 flex items-center gap-2 z-10">
         {product.isBestSelling && (
           <span className="flex items-center px-2 py-0.5 rounded font-extrabold uppercase text-[10px] bg-yellow-200 text-yellow-800 border border-yellow-400 shadow-sm">
-            Bán chạy
+            {t('best_seller')}
           </span>
         )}
       </div>
       <button
         type="button"
         className="absolute top-2 right-2 z-10 p-1 rounded-full hover:bg-gray-100"
-        aria-label={isFavorite ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+        aria-label={isFavorite ? t('remove_favorite') : t('add_favorite')}
         onClick={toggleFavorite ? () => toggleFavorite(product.id) : undefined}
       >
         {isFavorite ? <Heart fill="#ef4444" color="#ef4444" size={18} /> : <Heart size={18} color="#888" />}
@@ -145,8 +146,8 @@ const ProductCard: React.FC<{
           <span>{product.origin}</span>
         </div>
         <div className="text-[15px] font-bold text-primary mt-auto">
-          {product.price.toLocaleString('en-US')}VNĐ
-        </div>
+            {product.price.toLocaleString('en-US')} {t('vnd_text')}
+          </div>
       </div>
 
       <div className="grid grid-cols-2 gap-1 mt-1">
@@ -154,13 +155,13 @@ const ProductCard: React.FC<{
           onClick={() => onAddToCart(product)}
           className="btn-dense bg-primary-light text-primary text-[11px] py-1.5 text-center font-bold"
         >
-          Thêm
+          {t('add')}
         </button>
         <button
           onClick={() => onBuyNow(product)}
           className="btn-dense bg-primary text-white text-[11px] py-1.5 text-center font-bold"
         >
-          Mua ngay
+          {t('buy_now')}
         </button>
       </div>
     </div>
@@ -201,7 +202,7 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
     return sourceProducts.filter(filterFn);
   }, [products, categoryKey, subCategoryId, normalizedMappedSubCategory, filters, filterConfig]);
 
-  if (!filterConfig) return <div className="p-8 text-center text-gray-400">Không tìm thấy danh mục này.</div>;
+  if (!filterConfig) return <div className="p-8 text-center text-gray-400">{t('category_not_found')}</div>;
 
   // Lấy giá trị duy nhất cho các trường select từ mock hoặc products
   const getOptions = (field: string) => {
@@ -217,12 +218,12 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
         <aside className="w-full md:w-64 flex-shrink-0 mb-6 md:mb-0">
           <div className="bg-white rounded-2xl shadow border border-border-theme p-6 sticky top-28">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-base font-bold text-primary">Bộ lọc</span>
+              <span className="text-base font-bold text-primary">{t('filter_title')}</span>
               <button
                 className="text-xs text-accent underline hover:text-primary"
                 onClick={() => setFilters({})}
               >
-                Xóa lọc
+                {t('clear_filters')}
               </button>
             </div>
             <div className="flex flex-col gap-6">
@@ -235,9 +236,9 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
                     <div key={field.key} className="mb-4 pb-4 border-b border-gray-100">
                       <div className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-widest">{field.label}</div>
                       <div className="flex gap-2 items-center">
-                        <input type="number" placeholder="Từ" className="border border-gray-200 rounded px-3 py-1 w-20 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" value={filters[field.key]?.min || ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], min: Number(e.target.value) } }))} />
+                        <input type="number" placeholder={t('range_from')} className="border border-gray-200 rounded px-3 py-1 w-20 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" value={filters[field.key]?.min || ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], min: Number(e.target.value) } }))} />
                         <span className="text-gray-400">-</span>
-                        <input type="number" placeholder="Đến" className="border border-gray-200 rounded px-3 py-1 w-20 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" value={filters[field.key]?.max || ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], max: Number(e.target.value) } }))} />
+                        <input type="number" placeholder={t('range_to')} className="border border-gray-200 rounded px-3 py-1 w-20 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" value={filters[field.key]?.max || ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], max: Number(e.target.value) } }))} />
                       </div>
                     </div>
                   );
@@ -260,7 +261,7 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
                             <span className="flex gap-0.5">
                               {Array.from({ length: r }).map((_, i) => <Star key={i} size={14} fill="#FACC15" color="#FACC15" />)}
                             </span>
-                            <span className="text-xs">{r} sao trở lên</span>
+                            <span className="text-xs">{t('stars_or_more', { count: r })}</span>
                           </label>
                         ))}
                       </div>

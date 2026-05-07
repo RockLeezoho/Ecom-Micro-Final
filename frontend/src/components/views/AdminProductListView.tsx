@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { t } from '../../utils/translate'; // Import translation helper
 import { Plus, Search, Trash2, Edit } from 'lucide-react'; // Bỏ các import không dùng để tránh cảnh báo
 import { Product } from '../../types';
 import { listAdminProducts, deleteAdminProduct } from '../../services/adminProductService';
@@ -6,10 +7,12 @@ import { listAdminProducts, deleteAdminProduct } from '../../services/adminProdu
 interface AdminProductListProps {
   onAdd: () => void;
   onEdit: (product: Product) => void;
+  onDelete?: (id: string) => void;
+  products?: Product[];
 }
 
-const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }) => {
-  const [products, setProducts] = useState<Product[]>([]);
+const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit, onDelete, products: initialProducts }) => {
+  const [products, setProducts] = useState<Product[]>(initialProducts || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -18,7 +21,7 @@ const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }
     const load = async () => {
       setLoading(true);
       try {
-        const data = await listAdminProducts();
+        const data = initialProducts && initialProducts.length > 0 ? initialProducts : await listAdminProducts();
         
         // Vì data trả về có thể khác nhau tùy API, lọc tại đây
         const serverFiltered = data.filter((p: Product) =>
@@ -37,7 +40,7 @@ const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }
       }
     };
     load();
-  }, [searchTerm, activeCategory]);
+  }, [searchTerm, activeCategory, initialProducts]);
 
   const getCategoryLabel = (cat: string) => {
     switch (cat) {
@@ -53,8 +56,8 @@ const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-text-main">Quản lý kho hàng</h1>
-          <p className="text-xs text-[#718096]">Chỉnh sửa và theo dõi mức tồn kho trên tất cả danh mục.</p>
+          <h1 className="text-xl font-bold text-text-main">{t('manage_inventory')}</h1>
+          <p className="text-xs text-[#718096]">{t('manage_inventory_desc')}</p>
         </div>
         <button 
           onClick={onAdd}
@@ -68,7 +71,7 @@ const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }
         <div className="relative w-64">
           <input 
             type="text"
-            placeholder="Tìm kiếm sản phẩm..."
+            placeholder={t('search_products_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-1.5 pl-9 pr-4 text-xs font-medium focus:ring-1 focus:ring-primary outline-none"
@@ -92,7 +95,7 @@ const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-gray-400">Đang tải sản phẩm...</div>
+        <div className="p-8 text-center text-gray-400">{t('loading_products')}</div>
       ) : (
         <div className="bg-white border border-border-theme rounded-lg overflow-hidden shadow-sm">
           <table className="w-full text-left text-xs">
@@ -103,7 +106,7 @@ const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }
                 <th className="px-4 py-3">Xuất xứ</th>
                 <th className="px-4 py-3">Tồn kho</th>
                 <th className="px-4 py-3">Giá</th>
-                <th className="px-4 py-3 text-right">Thao tác</th>
+                <th className="px-4 py-3 text-right">{t('product_actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-theme">
@@ -161,7 +164,7 @@ const AdminProductListView: React.FC<AdminProductListProps> = ({ onAdd, onEdit }
             </tbody>
           </table>
           {products.length === 0 && (
-            <div className="p-10 text-center text-gray-500">Không tìm thấy sản phẩm nào.</div>
+            <div className="p-10 text-center text-gray-500">{t('no_products_found')}</div>
           )}
         </div>
       )}

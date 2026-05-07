@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loginAdmin, loginStaff, loginUser } from '../../services/authService';
+import { t } from '../../utils/translate';
 import { motion } from 'motion/react';
 import { Mail, Lock, LogIn } from 'lucide-react';
 
@@ -38,15 +39,15 @@ const LoginView: React.FC<{ onLogin: (session: any) => void; onNavigate: (view: 
       >
         <div className="text-center mb-8">
           <img src="/logo_becshop.png" alt="BECShop Logo" className="w-15 h-15 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-text-main">BECShop Commerce</h1>
+          <h1 className="text-xl font-bold text-text-main">{t('app_title')}</h1>
           <p className="text-[10px] text-[#718096] uppercase tracking-widest font-black mt-1">
-            {roleType === 'customer' ? 'Đăng nhập khách hàng' : roleType === 'admin' ? 'Đăng nhập admin' : 'Đăng nhập staff'}
+            {roleType === 'customer' ? t('login_title_customer') : roleType === 'admin' ? t('login_title_admin') : t('login_title_staff')}
           </p>
         </div>
           
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">Tên đăng nhập</label>
+            <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">{t('username_label') || t('username_placeholder')}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-2.5 text-[#A0AEC0]" size={16} />
               <input 
@@ -54,21 +55,21 @@ const LoginView: React.FC<{ onLogin: (session: any) => void; onNavigate: (view: 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                  placeholder="Tên đăng nhập"
+                  placeholder={t('username_placeholder')}
                   required
                 />
             </div>
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">Mật khẩu</label>
+            <label className="text-[11px] font-bold text-[#718096] uppercase tracking-wider block mb-1 ml-1">{t('password_label')}</label>
             <div className="relative">
               <Lock className="absolute left-3 top-2.5 text-[#A0AEC0]" size={16} />
               <input 
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={t('password_placeholder')}
                 className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
                 required
               />
@@ -80,7 +81,7 @@ const LoginView: React.FC<{ onLogin: (session: any) => void; onNavigate: (view: 
             className="w-full bg-primary text-white py-2.5 rounded-md font-bold text-[13px] uppercase tracking-widest hover:bg-opacity-90 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-60"
             disabled={loading}
           >
-            {loading ? 'Đang đăng nhập...' : <>Đăng nhập <LogIn size={16} /></>}
+            {loading ? t('logging_in') : <>{t('login_button')} <LogIn size={16} /></>}
           </button>
         </form>
 
@@ -88,33 +89,30 @@ const LoginView: React.FC<{ onLogin: (session: any) => void; onNavigate: (view: 
             {roleType === 'customer' ? (
               <div className="space-y-3 text-center text-xs text-[#718096]">
                 <p>
-                  Chưa có tài khoản? <button onClick={() => onNavigate({ type: 'REGISTER' })} className="text-primary font-bold">Tạo tài khoản</button>
+                  {t('no_account_prompt')} <button onClick={() => onNavigate({ type: 'REGISTER' })} className="text-primary font-bold">{t('create_account')}</button>
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
                   <Link to="/portal/staff/login" className="text-primary font-bold hover:underline">
-                    Đăng nhập staff
+                    {t('staff_login')}
                   </Link>
                   <Link to="/portal/admin/login" className="text-primary font-bold hover:underline">
-                    Đăng nhập admin
+                    {t('admin_login')}
                   </Link>
                 </div>
               </div>
             ) : (
               <div className="space-y-3 text-center text-xs text-[#718096]">
-                <p>Cần quyền truy cập? Liên hệ quản trị hệ thống.</p>
+                <p>{t('need_access_contact_admin')}</p>
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
                   {roleType === 'staff' ? (
                     <Link to="/portal/admin/login" className="text-primary font-bold hover:underline">
-                      Chuyển sang đăng nhập admin
+                      Quản trị viên đăng nhập
                     </Link>
                   ) : (
                     <Link to="/portal/staff/login" className="text-primary font-bold hover:underline">
-                      Chuyển sang đăng nhập staff
+                      Nhân viên đăng nhập
                     </Link>
                   )}
-                  <Link to="/login" className="text-primary font-bold hover:underline">
-                    Về đăng nhập khách hàng
-                  </Link>
                 </div>
               </div>
             )}

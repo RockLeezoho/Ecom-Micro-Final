@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Package, ChevronRight, Clock, CheckCircle2, Truck, XCircle, Search } from 'lucide-react';
 import { Order } from '../../types';
+import { t } from '../../utils/translate';
 
 interface OrderHistoryProps {
   orders: Order[];
@@ -32,11 +33,11 @@ const OrderHistoryView: React.FC<OrderHistoryProps> = ({ orders, onViewDetails, 
 
   const getStatusLabel = (status: Order['status']) => {
     switch (status) {
-      case 'awaiting_confirmation': return 'Chờ xác nhận';
-      case 'awaiting_pickup': return 'Chờ lấy hàng';
-      case 'awaiting_delivery': return 'Đang giao hàng';
-      case 'delivered': return 'Đã giao hàng';
-      case 'canceled': return 'Đã hủy';
+      case 'awaiting_confirmation': return t('order_status_awaiting_confirmation');
+      case 'awaiting_pickup': return t('order_status_awaiting_pickup');
+      case 'awaiting_delivery': return t('order_status_awaiting_delivery');
+      case 'delivered': return t('order_status_delivered');
+      case 'canceled': return t('order_status_canceled');
     }
   };
 
@@ -44,8 +45,8 @@ const OrderHistoryView: React.FC<OrderHistoryProps> = ({ orders, onViewDetails, 
     <div className="max-w-4xl mx-auto px-4 py-12">
       <div className="flex items-center justify-between mb-10">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">Lịch sử mua hàng</h1>
-          <p className="text-gray-500 font-medium italic">Theo dõi kiện hàng và xem lại lịch sử giao dịch.</p>
+          <h1 className="text-3xl font-black text-gray-900">{t('order_history_title')}</h1>
+          <p className="text-gray-500 font-medium italic">{t('order_history_description')}</p>
         </div>
         <div className="p-3 bg-primary-light text-primary rounded-2xl">
            <Package size={28} />
@@ -57,13 +58,13 @@ const OrderHistoryView: React.FC<OrderHistoryProps> = ({ orders, onViewDetails, 
            <div className="inline-flex p-6 bg-gray-50 rounded-full mb-6">
                 <Search size={48} className="text-gray-200" />
            </div>
-           <h3 className="text-xl font-bold text-gray-900 mb-2">Không tìm thấy đơn hàng</h3>
-           <p className="text-gray-500 mb-8 max-w-xs mx-auto">Hãy bắt đầu khám phá các bộ sưu tập của chúng tôi!</p>
+           <h3 className="text-xl font-bold text-gray-900 mb-2">{t('order_history_empty')}</h3>
+           <p className="text-gray-500 mb-8 max-w-xs mx-auto">{t('order_history_empty_desc')}</p>
            <button 
                 onClick={() => onNavigate({ type: 'HOME' })}
                 className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/20"
            >
-                Đến Cửa hàng
+                {t('order_history_to_shop')}
            </button>
         </div>
       ) : (
@@ -86,7 +87,7 @@ const OrderHistoryView: React.FC<OrderHistoryProps> = ({ orders, onViewDetails, 
                             {new Date(order.createdAt).toLocaleDateString('vi-VN', { month: 'long', day: 'numeric', year: 'numeric' })}
                         </div>
                         <h3 className="text-lg font-black text-gray-900">Đơn hàng #{order.id}</h3>
-                        <p className="text-sm font-bold text-primary">{order.totalAmount.toLocaleString('vi-VN')} VNĐ • {order.items.length} sản phẩm</p>
+                        <p className="text-sm font-bold text-primary">{order.totalAmount.toLocaleString('vi-VN')} {t('vnd_text')} {t('order_history_separator', { count: order.items.length })}</p>
                     </div>
                 </div>
 

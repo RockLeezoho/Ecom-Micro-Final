@@ -1,15 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, Send, Bot, User, Loader2, Minimize2, Maximize2, BotMessageSquare } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { chatWithAIService } from '../services/aiService';
+import type { Product } from '../types';
 
 interface Message {
   id: string;
   role: 'user' | 'model';
   text: string;
+  products?: Product[];
 }
 
 const ChatAI: React.FC = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 384, height: 500 });
@@ -79,9 +83,9 @@ const ChatAI: React.FC = () => {
 
     try {
       // Gọi AI Service qua API Gateway
-      const { answer } = await chatWithAIService(userMessage.text);
+      const { answer, products } = await chatWithAIService(userMessage.text);
       const modelMessageId = (Date.now() + 1).toString();
-      setMessages(prev => [...prev, { id: modelMessageId, role: 'model', text: answer }]);
+      setMessages(prev => [...prev, { id: modelMessageId, role: 'model', text: answer, products }]);
     } catch (error) {
       console.error("Chat Error:", error);
       setMessages(prev => [...prev, { 
@@ -177,6 +181,23 @@ const ChatAI: React.FC = () => {
                           : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                       }`}>
                         {msg.text || (isLoading && msg.role === 'model' && <Loader2 size={14} className="animate-spin" />)}
+                        {msg.role === 'model' && msg.products && msg.products.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <div className="text-[10px] font-bold text-gray-500 mb-1">Gợi ý sản phẩm:</div>
+                            <div className="space-y-1">
+                              {msg.products.slice(0, 3).map((product) => (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => navigate(`/products/${product.id}`)}
+                                  className="block text-[11px] text-primary truncate hover:underline text-left"
+                                >
+                                  - {product.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
