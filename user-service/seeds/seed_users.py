@@ -1,79 +1,42 @@
-# modules/catalog/management/commands/seed_users.py
-import datetime
-import uuid
+import csv
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
-# Đã dọn dẹp lại import từ file gốc của bạn
-from user_service.apps.users.models import Admin, Staff, Customer, Address 
+from apps.users.models import Admin, Staff, Customer, Address
 
 class Command(BaseCommand):
-    help = 'Seeds the database with 3 specific users using UUIDs: Admin, Staff, and Customer'
+    help = 'Read users.csv and seed into Database'
 
     def handle(self, *args, **kwargs):
-        self.stdout.write("Seeding users...")
-        
-        ADMIN_UUID = "550e8400-e29b-41d4-a716-446655440000"
-        STAFF_UUID = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-        CUSTOMER_UUID = "8d5b16e4-862d-4861-b4d2-79069d239c04"
+        file_path = 'data_raw/users.csv'
+        self.stdout.write(f"Reading {file_path}...")
 
-        # 1. Tạo Admin
-        if not Admin.objects.filter(id=ADMIN_UUID).exists():
-            admin_user = Admin.objects.create(
-                id=ADMIN_UUID,
-                username="admin_boss",
-                email="admin@example.com",
-                password=make_password("password123"),
-                first_name="Hùng",
-                last_name="Nguyễn",
-                phone_number="0901234567",
-                role="admin",
-                position="System Director",
-                gender="Male",
-                date_of_birth=datetime.date(1985, 5, 20)
-            )
-            self.stdout.write(self.style.SUCCESS(f"Created Admin: {admin_user.username} (ID: {admin_user.id})"))
+        try:
+            with open(file_path, mode='r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    role = row['role']
+                    user_data = {
+                        'id': row['id'],
+                        'username': row['username'],
+                        'email': row['email'],
+                        'password': make_password("password123"), # Mật khẩu mặc định
+                        'first_name': row['first_name'],
+                        'last_name': row['last_name'],
+                        'phone_number': row['phone'],
+                        'gender': row['gender'],
+                        'date_of_birth': row['dob'] if row['dob'] else None,
+                        'role': role
+                    }
 
-        # 2. Tạo Staff
-        if not Staff.objects.filter(id=STAFF_UUID).exists():
-            staff_user = Staff.objects.create(
-                id=STAFF_UUID,
-                username="staff_kane",
-                email="staff@example.com",
-                password=make_password("password123"),
-                first_name="Lan",
-                last_name="Trần",
-                phone_number="0907778889",
-                role="staff",
-                employment_type="Full-time",
-                gender="Female",
-                date_of_birth=datetime.date(1995, 10, 10)
-            )
-            self.stdout.write(self.style.SUCCESS(f"Created Staff: {staff_user.username} (ID: {staff_user.id})"))
+                    if role == 'admin':
+                        Admin.objects.update_or_create(id=row['id'], defaults=user_data)
+                    elif role == 'staff':
+                        Staff.objects.update_or_create(id=row['id'], defaults=user_data)
+                    else: # customer
+                        customer, created = Customer.objects.update_or_create(id=row['id'], defaults=user_data)
+                        # Tạo địa chỉ mẫu cho khách hàng
+                        Address.objects.get_or_create(user=customer, defaults={'address': "Số 1 Lý Tự Trọng, Quận 1, TP.HCM"})
 
-        # 3. Tạo Customer
-        if not Customer.objects.filter(id=CUSTOMER_UUID).exists():
-            customer_user = Customer.objects.create(
-                id=CUSTOMER_UUID,
-                username="customer_john",
-                email="john@example.com",
-                password=make_password("password123"),
-                first_name="John",
-                last_name="Doe",
-                phone_number="0888999000",
-                role="customer",
-                height=175.5,
-                weight=72.0,
-                foot_length=26.5,
-                gender="Male",
-                date_of_birth=datetime.date(2000, 1, 1)
-            )
-            
-            # Tạo thêm địa chỉ giao hàng mẫu cho Customer này
-            Address.objects.get_or_create(
-                user=customer_user,
-                defaults={'address': "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh"}
-            )
-            
-            self.stdout.write(self.style.SUCCESS(f"Created Customer: {customer_user.username} (ID: {customer_user.id})"))
-
-        self.stdout.write(self.style.SUCCESS('Successfully seeded 3 specific users with UUIDs!'))
+                self.stdout.write(self.style.SUCCESS('Successfully seeded users from CSV!'))
+        except FileNotFoundError:
+            self.stdout.write(self.style.ERROR('File data_raw/users.csv not found!'))

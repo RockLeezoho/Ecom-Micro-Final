@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+models/
+scripts/
+.git
+seeds/data_raw/
