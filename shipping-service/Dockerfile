@@ -17,6 +17,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8007
 
-CMD ["gunicorn", "config.wsgi:application", "-b", "0.0.0.0:8007", "--timeout", "120"]
+ENTRYPOINT ["/app/entrypoint.sh"]
