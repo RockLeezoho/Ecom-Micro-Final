@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 
-from app.schemas.request import ChatRequest, FrontendChatRequest, RecommendRequest
-from app.schemas.response import RecommendResponse, ChatResponse
+from app.models.request import ChatRequest, FrontendChatRequest, RecommendRequest
+from app.models.response import RecommendResponse, ChatResponse
 from app.services.ai_service import AIService
 
 router = APIRouter()

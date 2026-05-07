@@ -14,7 +14,6 @@ COPY requirements.txt .
 
 RUN pip install --upgrade pip setuptools wheel
 
-# 👉 Cài full AI stack trong 1 lần để tránh conflict
 RUN pip install --no-cache-dir --timeout 1000 --retries 50 \
     -r requirements.txt
 
