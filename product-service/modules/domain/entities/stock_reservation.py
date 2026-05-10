@@ -5,11 +5,10 @@ from enum import Enum
 
 
 class ReservationStatus(str, Enum):
-    """Trạng thái của stock reservation"""
-    ACTIVE = "ACTIVE"  # Đang giữ
-    RELEASED = "RELEASED"  # Đã hủy giữ
-    CONFIRMED = "CONFIRMED"  # Đã xác nhận (đơn hàng hoàn thành)
-    EXPIRED = "EXPIRED"  # Hết hạn giữ
+    ACTIVE = "ACTIVE" 
+    RELEASED = "RELEASED" 
+    CONFIRMED = "CONFIRMED"
+    EXPIRED = "EXPIRED" 
 
 
 @dataclass

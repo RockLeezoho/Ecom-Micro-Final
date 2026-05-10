@@ -28,8 +28,13 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
         model = ProductModel.objects.select_related('category', 'brand').prefetch_related('images').get(id=product_id)
         return self._to_entity(model)
 
-    def get_new_arrivals(self, category: Category, limit: int = 10) -> list[Product]:
-        category_ids = self._get_category_scope_ids(category.id)
+    def get_new_arrivals(
+        self,
+        category: Category,
+        limit: int = 10,
+        category_scope_ids: list[str] | None = None,
+    ) -> list[Product]:
+        category_ids = category_scope_ids or self._get_category_scope_ids(category.id)
         models = (
             ProductModel.objects.filter(category_id__in=category_ids)
             .select_related('category', 'brand')
@@ -38,8 +43,13 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
         )
         return [self._to_entity(model) for model in models]
 
-    def get_popular(self, category: Category, limit: int = 10) -> list[Product]:
-        category_ids = self._get_category_scope_ids(category.id)
+    def get_popular(
+        self,
+        category: Category,
+        limit: int = 10,
+        category_scope_ids: list[str] | None = None,
+    ) -> list[Product]:
+        category_ids = category_scope_ids or self._get_category_scope_ids(category.id)
         models = (
             ProductModel.objects.filter(category_id__in=category_ids, rating__gte=4.9)
             .select_related('category', 'brand')
@@ -61,6 +71,9 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
             .order_by('-rating')[:limit]
         )
         return [self._to_entity(model) for model in models]
+
+    def get_category_scope_ids(self, category_id: str) -> list[str]:
+        return self._get_category_scope_ids(category_id)
 
     def increment_view_count(self, product_id: str) -> None:
         ProductModel.objects.filter(id=product_id).update(view_count=F('view_count') + 1)

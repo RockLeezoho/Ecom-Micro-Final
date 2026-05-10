@@ -19,7 +19,7 @@ class ProductListView(ListAPIView):
         category_slug = self.request.query_params.get('category')
         subcategory_slug = self.request.query_params.get('subcategory')
         if not category_slug and not subcategory_slug:
-            return ProductModel.objects.all().select_related('brand', 'author')
+            return ProductModel.objects.all().select_related('brand', 'author').prefetch_related('images')
 
         target_slug = subcategory_slug or category_slug
         category = get_object_or_404(CategoryModel, slug=target_slug)
@@ -32,7 +32,7 @@ class ProductListView(ListAPIView):
             category_ids.extend([child.id for child in children])
             stack.extend(children)
 
-        return ProductModel.objects.filter(category_id__in=category_ids).select_related('brand', 'author')
+        return ProductModel.objects.filter(category_id__in=category_ids).select_related('brand', 'author').prefetch_related('images')
 
 class ProductFilterMetaView(GenericAPIView):
     permission_classes = [AllowAny]

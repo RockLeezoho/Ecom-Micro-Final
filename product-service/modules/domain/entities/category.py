@@ -5,7 +5,7 @@ from typing import List, Optional
 class Category:
     id: str
     name: str
-    slug: str  # Thêm slug cho URL
+    slug: str  
     description: Optional[str] = None
     parent: Optional['Category'] = None  # Thêm parent để truy ngược lên trên
     children: List['Category'] = field(default_factory=list)

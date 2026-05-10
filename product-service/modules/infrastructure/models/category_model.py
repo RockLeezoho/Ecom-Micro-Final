@@ -5,11 +5,12 @@ import uuid
 class CategoryModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    slug = models.SlugField(unique=True, blank=True) # Thêm slug
+    slug = models.SlugField(db_index=True, unique=True, blank=True) # Thêm slug
     description = models.TextField(blank=True, null=True)
     
     parent = models.ForeignKey(
         'self', 
+        db_index=True,
         on_delete=models.SET_NULL,
         null=True, 
         blank=True, 

@@ -1,252 +1,210 @@
-import random
-import uuid
-from datetime import date, datetime, timedelta
+import csv
+from pathlib import Path
+from datetime import datetime
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.conf import settings
 from django.utils.text import slugify
+from django.db import transaction
 
+# Import các models
 from modules.infrastructure.models.product_model import (
     CategoryModel, ProductModel, BookModel, ElectronicModel, FashionModel
 )
 from modules.infrastructure.models.author_model import AuthorModel
-from modules.infrastructure.models.publisher_model import PublisherModel
 from modules.infrastructure.models.brand_model import BrandModel
+from modules.infrastructure.models.publisher_model import PublisherModel
 from modules.infrastructure.models.image_model import ProductImageModel
-from modules.domain.entities.product import (
-    ProductStatus, Origin, Color, Size, Language, Gender, Material, Season, Condition
-)
 
 class Command(BaseCommand):
-    help = 'Seed 100 sample products into the product DB'
+    help = 'Seed products từ products.csv với cấu trúc Danh mục Cha-Con'
 
-    def handle(self, *args, **kwargs):
-        self.stdout.write("Starting to seed 100 sample products...")
+    # Cấu hình ánh xạ danh mục con -> danh mục cha
+    PARENT_MAPPING = {
+        'sach-luu-tru': ['giao-trinh', 'tieu-thuyet', 'truyen-tranh'],
+        'thiet-bi-dien-tu': ['dien-thoai', 'laptop', 'tu-lanh', 'dieu-hoa'],
+        'thoi-trang-may-mac': ['ao', 'quan', 'giay']
+    }
 
-        with transaction.atomic():
-            categories = self._create_categories()
-            authors = self._create_authors()
-            publishers = self._create_publishers()
-            brands = self._create_brands()
-            self._create_products(categories, authors, publishers, brands)
+    def add_arguments(self, parser):
+        parser.add_argument('--refresh', action='store_true', help='Xóa toàn bộ dữ liệu cũ')
+        parser.add_argument('--stop-on-error', action='store_true', help='Dừng nếu gặp lỗi')
 
-        self.stdout.write(self.style.SUCCESS('Successfully seeded 100 sample products!'))
-
-    def _create_categories(self):
-        """Create parent and child categories"""
-        self.stdout.write("Creating categories...")
-        categories = {}
-        
-        parent_categories_data = [
-            {'name': 'Sách & Lưu trữ', 'description': 'Sách, báo, tạp chí và các sản phẩm lưu trữ'},
-            {'name': 'Thiết bị điện tử', 'description': 'Điện thoại, laptop, phụ kiện công nghệ'},
-            {'name': 'Thời trang & May mặc', 'description': 'Quần áo, giày dép, phụ kiện'},
+    def handle(self, *args, **options):
+        # 1. Tìm file CSV
+        possible_paths = [
+            Path(settings.BASE_DIR) / 'modules' / 'seeds' / 'data_raw' / 'products.csv',
+            Path.cwd() / 'modules' / 'seeds' / 'data_raw' / 'products.csv',
         ]
+        file_path = next((p for p in possible_paths if p.exists()), None)
         
-        for parent_data in parent_categories_data:
-            parent, _ = CategoryModel.objects.update_or_create(
-                name=parent_data['name'],
-                defaults={
-                    'slug': slugify(parent_data['name']),
-                    'description': parent_data['description'],
-                    'parent': None
-                }
+        if not file_path:
+            self.stdout.write(self.style.ERROR('❌ Không tìm thấy file products.csv'))
+            return
+
+        # 2. Làm sạch database nếu có --refresh
+        if options.get('refresh'):
+            self.stdout.write(self.style.WARNING('⚠️  Đang xóa dữ liệu cũ...'))
+            ProductModel.objects.all().delete()
+            CategoryModel.objects.all().delete()
+            BrandModel.objects.all().delete()
+            AuthorModel.objects.all().delete()
+
+        # 3. Khởi tạo Danh mục Cha (Parent Categories)
+        self.stdout.write('📂 Đang khởi tạo cấu trúc danh mục...')
+        parent_objs = {}
+        for p_slug in self.PARENT_MAPPING.keys():
+            p_name = p_slug.replace('-', ' ').title()
+            obj, _ = CategoryModel.objects.get_or_create(
+                slug=p_slug, 
+                defaults={'name': p_name, 'parent': None}
             )
-            categories[parent.name] = {'parent': parent, 'children': {}}
-        
-        child_categories_data = {
-            'Sách & Lưu trữ': [
-                {'name': 'Giáo trình', 'description': 'Sách giáo khoa và sách tham khảo học tập'},
-                {'name': 'Tiểu thuyết', 'description': 'Truyện tranh, tiểu thuyết, văn học'},
-                {'name': 'Truyện tranh', 'description': 'Manga, comic, truyện tranh các thể loại'},
-            ],
-            'Thiết bị điện tử': [
-                {'name': 'Điện thoại', 'description': 'Smartphone, máy tính bảng, phụ kiện'},
-                {'name': 'Laptop', 'description': 'Máy tính xách tay, bộ vi xử lý'},
-                {'name': 'Tủ lạnh', 'description': 'Tủ lạnh, tủ đông'},
-                {'name': 'Điều hòa', 'description': 'Máy điều hòa không khí'},
-            ],
-            'Thời trang & May mặc': [
-                {'name': 'Áo', 'description': 'Áo phông, áo sơ mi, áo khoác'},
-                {'name': 'Quần', 'description': 'Quần tây, quần jeans, quần khác'},
-                {'name': 'Giày dép', 'description': 'Giày thể thao, giày da, dép'},
-            ],
-        }
-        
-        for parent_name, children_list in child_categories_data.items():
-            parent = categories[parent_name]['parent']
-            for child_data in children_list:
-                child, _ = CategoryModel.objects.update_or_create(
-                    name=child_data['name'],
-                    parent=parent,
-                    defaults={
-                        'slug': slugify(child_data['name']),
-                        'description': child_data['description'],
+            parent_objs[p_slug] = obj
+
+        # Ánh xạ ngược để tìm cha từ con cho nhanh: {'giao-trinh': parent_obj, ...}
+        child_to_parent_map = {}
+        for p_slug, children in self.PARENT_MAPPING.items():
+            for c_slug in children:
+                child_to_parent_map[c_slug] = parent_objs[p_slug]
+
+        # 4. Biến đếm và cache
+        stats = {'total': 0, 'books': 0, 'electronics': 0, 'fashion': 0, 'failed': 0}
+        books_to_create, electronics_to_create, fashion_to_create, images_to_create = [], [], [], []
+
+        def safe_float(val, default=0.0):
+            try: return float(val) if val and val != 'nan' else default
+            except: return default
+
+        def safe_int(val, default=0):
+            try: return int(float(val)) if val and val != 'nan' else default
+            except: return default
+
+        # 5. Đọc CSV và xử lý
+        with open(file_path, mode='r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row_num, row in enumerate(reader, 1):
+                try:
+                    p_id = row['id']
+                    cat_slug = row.get('category') # Lấy slug danh mục con (ví dụ: giao-trinh)
+                    p_type = row.get('product_type')
+
+                    # Tạo/Lấy danh mục con và gán vào cha
+                    parent_obj = child_to_parent_map.get(cat_slug)
+                    category, _ = CategoryModel.objects.get_or_create(
+                        slug=cat_slug,
+                        defaults={
+                            'name': cat_slug.replace('-', ' ').title(),
+                            'parent': parent_obj # Gán ID danh mục cha ở đây
+                        }
+                    )
+
+                    # Dữ liệu chung
+                    # Validate rating - luôn đảm bảo có giá trị, không bao giờ null
+                    rating_val = safe_float(row.get('rating'), default=0.0)
+                    if rating_val is None or (isinstance(rating_val, float) and rating_val < 0):
+                        rating_val = 0.0
+                    
+                    common_data = {
+                        'id': p_id,
+                        'name': row['name'],
+                        'slug': row.get('slug'),
+                        'category': category,
+                        'origin': row.get('origin'),
+                        'price': safe_float(row.get('price')),
+                        'import_price': safe_float(row.get('importPrice')),
+                        'stock': safe_int(row.get('stock')),
+                        'rating': rating_val,  # Đảm bảo luôn có giá trị, không null
+                        'view_count': safe_int(row.get('viewCount')),
+                        'status': row.get('status'),
+                        'created_at': row.get('createdAt') or datetime.now()
                     }
-                )
-                categories[parent_name]['children'][child.name] = child
-        
-        return categories
 
-    def _create_authors(self):
-        self.stdout.write("Creating authors...")
-        authors_data = [
-            {'name': 'Lê Anh Vinh', 'bio': 'Tác giả nổi tiếng về quản lý doanh nghiệp'},
-            {'name': 'Nguyễn Văn A', 'bio': 'Chuyên gia về phát triển bản thân'},
-            {'name': 'Trần Thị B', 'bio': 'Nhà văn viết tiểu thuyết lãng mạn'},
-            {'name': 'Phạm Minh C', 'bio': 'Tác giả về khoa học tự nhiên'},
-            {'name': 'Hoàng Văn D', 'bio': 'Chuyên gia về công nghệ thông tin'},
-        ]
-        authors = {}
-        for author_data in authors_data:
-            author, _ = AuthorModel.objects.update_or_create(
-                name=author_data['name'],
-                defaults={'bio': author_data['bio']}
-            )
-            authors[author.name] = author
-        return authors
+                    # Phân loại model con
+                    if p_type == 'sach-luu-tru':
+                        author, _ = AuthorModel.objects.get_or_create(name=row.get('author', 'N/A'))
+                        publisher, _ = PublisherModel.objects.get_or_create(name=row.get('publisher', 'N/A'))
+                        book_data = {**common_data, 'author': author, 'publisher': publisher, 
+                                     'page_count': safe_int(row.get('pageCount')), 'language': row.get('language')}
+                        books_to_create.append(book_data)
+                        stats['books'] += 1
+                    
+                    elif p_type == 'thiet-bi-dien-tu':
+                        brand, _ = BrandModel.objects.get_or_create(name=row.get('brand', 'Generic'))
+                        condition = row.get('condition', 'NEW').upper()  # Đảm bảo uppercase phù hợp enum
+                        electronic_data = {**common_data, 'brand': brand, 'model': row.get('model'),
+                                          'color': row.get('color'), 'condition': condition}
+                        electronics_to_create.append(electronic_data)
+                        stats['electronics'] += 1
+                        
+                    elif p_type == 'thoi-trang-may-mac':
+                        brand, _ = BrandModel.objects.get_or_create(name=row.get('brand', 'Generic'))
+                        gender = row.get('gender', 'UNISEX').upper()  # Đảm bảo uppercase phù hợp enum
+                        fashion_data = {**common_data, 'brand': brand, 'size': row.get('size'),
+                                       'material': row.get('material'), 'gender': gender,
+                                       'color': row.get('color'), 'season': row.get('season')}
+                        fashion_to_create.append(fashion_data)
+                        stats['fashion'] += 1
 
-    def _create_publishers(self):
-        self.stdout.write("Creating publishers...")
-        publishers_data = [
-            {'name': 'NXB Giáo Dục', 'address': 'Hà Nội, Việt Nam'},
-            {'name': 'NXB Trẻ', 'address': 'Hà Nội, Việt Nam'},
-            {'name': 'NXB Kim Đồng', 'address': 'Hà Nội, Việt Nam'},
-        ]
-        publishers = {}
-        for pub_data in publishers_data:
-            publisher, _ = PublisherModel.objects.update_or_create(
-                name=pub_data['name'],
-                defaults={'address': pub_data['address']}
-            )
-            publishers[publisher.name] = publisher
-        return publishers
+                    # Ảnh mẫu
+                    images_to_create.append(ProductImageModel(product_id=p_id, image_url=f"https://picsum.photos/seed/{p_id}/600/600", is_avatar=True))
 
-    def _create_brands(self):
-        self.stdout.write("Creating brands...")
-        brands_data = [
-            {'name': 'Apple', 'country': 'USA', 'description': 'Công ty công nghệ'},
-            {'name': 'Samsung', 'country': 'Hàn Quốc', 'description': 'Hãng điện tử'},
-            {'name': 'Nike', 'country': 'USA', 'description': 'Thương hiệu thể thao'},
-            {'name': 'Adidas', 'country': 'Đức', 'description': 'Hãng sản xuất giày'},
-        ]
-        brands = {}
-        for brand_data in brands_data:
-            brand, _ = BrandModel.objects.update_or_create(
-                name=brand_data['name'],
-                defaults={
-                    'country': brand_data['country'],
-                    'description': brand_data['description'],
-                    'logoUrl': f'https://picsum.photos/seed/{slugify(brand_data["name"])}/100/100'
-                }
-            )
-            brands[brand.name] = brand
-        return brands
+                except Exception as e:
+                    stats['failed'] += 1
+                    self.stdout.write(self.style.ERROR(f"❌ Lỗi dòng {row_num}: {str(e)}"))
+                    if options.get('stop_on_error'): raise
 
-    def _create_products(self, categories, authors, publishers, brands):
-        """Create 100 sample products using update_or_create"""
-        self.stdout.write("Creating/Updating 100 sample products...")
-        product_count = 0
+        # 6. Lưu vào DB theo từng record để skip lỗi mà không làm hỏng cả batch
+        self.stdout.write('🚀 Đang thực hiện Bulk Create...')
 
-        # --- BOOKS (34 products) ---
-        book_names = ['Suy tư để thành công', 'Tư duy chiến lược', 'Nghệ thuật giao tiếp', 'Manga Nhật Bản']
-        for i in range(34):
-            product_count += 1
-            cat = random.choice(list(categories['Sách & Lưu trữ']['children'].values()))
-            name = f"{random.choice(book_names)} - {i+1}"
-            slug = slugify(name)
-            price = random.randint(50, 300) * 1000
+        created_product_ids = set()
 
-            book, created = BookModel.objects.update_or_create(
-                slug=slug,
-                defaults={
-                    'name': name,
-                    'category': cat,
-                    'origin': random.choice([Origin.VIETNAM.value, Origin.JAPAN.value]),
-                    'price': price,
-                    'import_price': price * 0.6,
-                    'stock': random.randint(10, 100),
-                    'rating': round(random.uniform(3.5, 5.0), 1),
-                    'status': ProductStatus.SELLING.value,
-                    'view_count': random.randint(100, 5000),
-                    'author': random.choice(list(authors.values())),
-                    'publisher': random.choice(list(publishers.values())),
-                    'pub_date': str(random.randint(2015, 2024)),
-                    'language': Language.VIETNAMESE.value,
-                    'page_count': random.randint(100, 500),
-                    'format': 'Bìa mềm',
-                    'description': f'Cuốn sách {name} cung cấp kiến thức giá trị.',
-                }
-            )
-            self._create_product_images(book, "book")
+        def save_records(records, model_cls, label):
+            created_count = 0
+            for idx, payload in enumerate(records, 1):
+                try:
+                    # Mỗi record chạy trong 1 transaction riêng.
+                    # Nếu record này lỗi, chỉ rollback record đó.
+                    with transaction.atomic():
+                        model_cls.objects.create(**payload)
+                    created_count += 1
+                    created_product_ids.add(str(payload.get('id')))
+                except Exception as save_err:
+                    stats['failed'] += 1
+                    self.stdout.write(self.style.ERROR(
+                        f"❌ Lỗi khi save {label} #{idx} (ID: {payload.get('id')}): {str(save_err)}"
+                    ))
+                    self.stdout.write(self.style.ERROR(
+                        f"   Rating: {payload.get('rating')}, Status: {payload.get('status')}"
+                    ))
+                    if options.get('stop_on_error'):
+                        raise
 
-        # --- ELECTRONICS (36 products) ---
-        elec_names = ['iPhone 15', 'Samsung Galaxy S24', 'MacBook Pro', 'Dell XPS']
-        for i in range(36):
-            product_count += 1
-            cat = random.choice(list(categories['Thiết bị điện tử']['children'].values()))
-            name = f"{random.choice(elec_names)} - Model {i+1}"
-            slug = slugify(name)
-            price = random.randint(5000, 50000) * 1000
+            self.stdout.write(self.style.SUCCESS(
+                f'✅ Lưu {created_count}/{len(records)} {label} thành công!'
+            ))
 
-            elec, created = ElectronicModel.objects.update_or_create(
-                slug=slug,
-                defaults={
-                    'name': name,
-                    'category': cat,
-                    'origin': Origin.USA.value,
-                    'price': price,
-                    'import_price': price * 0.7,
-                    'stock': random.randint(5, 50),
-                    'status': ProductStatus.SELLING.value,
-                    'brand': random.choice(list(brands.values())),
-                    'model': f'M-{random.randint(100, 999)}',
-                    'tech_spec': {'warranty': '12 months'},
-                    'color': Color.BLACK.value,
-                    'condition': Condition.NEW.value,
-                }
-            )
-            self._create_product_images(elec, "elec")
+        if books_to_create:
+            save_records(books_to_create, BookModel, 'Book')
 
-        # --- FASHION (30 products) ---
-        fashion_names = ['Áo phông cotton', 'Quần jeans nam', 'Giày thể thao']
-        for i in range(30):
-            product_count += 1
-            cat = random.choice(list(categories['Thời trang & May mặc']['children'].values()))
-            name = f"{random.choice(fashion_names)} - {i+1}"
-            slug = slugify(name)
-            price = random.randint(200, 2000) * 1000
+        if electronics_to_create:
+            save_records(electronics_to_create, ElectronicModel, 'Electronic')
 
-            fashion, created = FashionModel.objects.update_or_create(
-                slug=slug,
-                defaults={
-                    'name': name,
-                    'category': cat,
-                    'origin': Origin.VIETNAM.value,
-                    'price': price,
-                    'import_price': price * 0.5,
-                    'stock': random.randint(10, 100),
-                    'status': ProductStatus.SELLING.value,
-                    'brand': random.choice(list(brands.values())),
-                    'size': Size.M.value,
-                    'color': Color.WHITE.value,
-                    'material': Material.COTTON.value,
-                    'gender': Gender.UNISEX.value,
-                    'season': Season.SUMMER.value,
-                }
-            )
-            self._create_product_images(fashion, "fashion")
+        if fashion_to_create:
+            save_records(fashion_to_create, FashionModel, 'Fashion')
 
-            if product_count % 10 == 0:
-                self.stdout.write(f"Processed {product_count} products...")
+        # Lưu Images chỉ cho các product đã được tạo thành công để tránh lỗi FK
+        if images_to_create:
+            valid_images = [img for img in images_to_create if str(img.product_id) in created_product_ids]
+            try:
+                with transaction.atomic():
+                    ProductImageModel.objects.bulk_create(valid_images, batch_size=500)
+                self.stdout.write(self.style.SUCCESS(
+                    f'✅ Lưu {len(valid_images)}/{len(images_to_create)} Images thành công!'
+                ))
+            except Exception as e:
+                stats['failed'] += 1
+                self.stdout.write(self.style.ERROR(f'❌ Lỗi khi lưu Images: {str(e)}'))
 
-    def _create_product_images(self, product, prefix):
-        """Helper to create images and avoid duplicates"""
-        # Xóa ảnh cũ của sản phẩm này để seed lại sạch sẽ
-        ProductImageModel.objects.filter(product=product).delete()
-        
-        for j in range(1, 4):
-            ProductImageModel.objects.create(
-                product=product,
-                image_url=f'https://picsum.photos/seed/{prefix}-{product.slug}-{j}/400/400',
-                is_avatar=(j == 1)
-            )
+        # 7. Báo cáo
+        self.stdout.write(f"\n--- KẾT QUẢ ---")
+        self.stdout.write(f"Sách: {stats['books']} | Điện tử: {stats['electronics']} | Thời trang: {stats['fashion']}")
+        self.stdout.write(f"Danh mục cha: {len(parent_objs)} | Thất bại: {stats['failed']}")

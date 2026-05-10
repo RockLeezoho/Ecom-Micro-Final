@@ -17,16 +17,20 @@ router.register(r'products', ProductViewSet, basename='product')
 router.register(r'admin/products', ProductAdminViewSet, basename='admin-product')
 
 urlpatterns = [
-	path('products/homepage/', HomepageAPIView.as_view(), name='product-homepage'),
-	path('categories/', CategoryListAPIView.as_view(), name='product-category-list'),
-	path('categories/all/', CategoryAllFlatAPIView.as_view(), name='product-category-all-flat'),
-	path('', include(router.urls)),
-	path('products/', ProductListView.as_view(), name='product-list'),
-	path('products/filters/', ProductFilterMetaView.as_view(), name='product-filter-meta'),
-    path('products/<slug:slug>/', ProductDetailAPIView.as_view(), name='product-detail'),
+    path('products/homepage/', HomepageAPIView.as_view(), name='product-homepage'),
+    path('categories/', CategoryListAPIView.as_view(), name='product-category-list'),
+    path('categories/all/', CategoryAllFlatAPIView.as_view(), name='product-category-all-flat'),
+
+    # Stock reservation endpoints must be before the router-generated product detail patterns
     path('products/reservations/', StockReservationCreateAPIView.as_view(), name='stock-reservation-create'),
     path('products/reservations/list/', StockReservationListAPIView.as_view(), name='stock-reservation-list'),
     path('products/reservations/<uuid:reservation_id>/', StockReservationDetailAPIView.as_view(), name='stock-reservation-detail'),
     path('products/reservations/<uuid:reservation_id>/confirm/', StockReservationConfirmAPIView.as_view(), name='stock-reservation-confirm'),
+
+    # Router URLs (detail/list) come after explicit reservation routes
+    path('', include(router.urls)),
+    path('products/', ProductListView.as_view(), name='product-list'),
+    path('products/filters/', ProductFilterMetaView.as_view(), name='product-filter-meta'),
+    path('products/<slug:slug>/', ProductDetailAPIView.as_view(), name='product-detail'),
     path('health/', HealthCheckAPIView.as_view(), name='health'),
 ]

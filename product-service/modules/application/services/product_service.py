@@ -34,8 +34,9 @@ class ProductService:
 
     def get_homepage_products(self, category_key: str) -> HomepageReadModel:
         category = self.product_catalog_repository.get_category(category_key)
-        new_arrivals = self.product_catalog_repository.get_new_arrivals(category)
-        popular = self.product_catalog_repository.get_popular(category)
+        category_scope_ids = self.product_catalog_repository.get_category_scope_ids(category.id)
+        new_arrivals = self.product_catalog_repository.get_new_arrivals(category, category_scope_ids=category_scope_ids)
+        popular = self.product_catalog_repository.get_popular(category, category_scope_ids=category_scope_ids)
         recommended_ids, bestseller_ids = self._get_homepage_related_ids(category.id)
 
         return HomepageReadModel(

@@ -35,7 +35,7 @@ class ProductRepositoryImpl(ProductRepository):
             stock=product.stock,
             rating=product.rating,
             status=product.status.value,
-            view_count=product.view_count
+            view_count=product.viewCount
         )
         # Images
         for img in product.images:
@@ -59,7 +59,7 @@ class ProductRepositoryImpl(ProductRepository):
         model.stock = product.stock
         model.rating = product.rating
         model.status = product.status.value
-        model.view_count = product.view_count
+        model.view_count = product.viewCount
         model.save()
         # Update images (simple: delete all, re-add)
         model.images.all().delete()
@@ -81,6 +81,7 @@ class ProductRepositoryImpl(ProductRepository):
         category = Category(
             id=str(model.category.id),
             name=model.category.name,
+            slug=model.category.slug,
             description=model.category.description
         ) if model.category else None
         images = [ProductImage(
@@ -101,7 +102,7 @@ class ProductRepositoryImpl(ProductRepository):
             stock=model.stock,
             rating=model.rating,
             status=model.status,
-            view_count=model.view_count,
+            viewCount=model.view_count,
             image=next((img for img in images if img.is_avatar), None),
             images=images,
             createdAt=model.created_at,

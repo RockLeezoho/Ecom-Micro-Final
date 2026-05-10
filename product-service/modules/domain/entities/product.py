@@ -19,21 +19,26 @@ class ProductStatus(str, Enum):
     DISCONTINUED = "DISCONTINUED"
 
 class Origin(str, Enum):
-    VIETNAM = "Vietnam"; CHINA = "China"; USA = "American"
-    JAPAN = "Japan"; KOREA = "Korean"; ENGLAND = "England"
-    FRANCE = "France"; THAILAND = "Thailand"
+    VIETNAM = "VN"
+    CHINA = "CN"
+    USA = "US"
+    JAPAN = "JP" 
+    KOREA = "KR" 
+    UK = "GB"
+    FRANCE = "FR" 
+    THAILAND = "TH"
 
 class Language(str, Enum):
-    VIETNAMESE = "Vietnamese"
-    ENGLISH = "English"
-    JAPANESE = "Japanese"
-    CHINESE = "Chinese"
-    FRENCH = "French"
+    VIETNAMESE = "vi"
+    ENGLISH = "en"
+    JAPANESE = "ja"
+    CHINESE = "zh"
+    FRENCH = "fr"
 
 class Gender(str, Enum):
-    MALE = "Male"
-    FEMALE = "Female"
-    UNISEX = "Unisex"
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    UNISEX = "UNISEX"
 
 class Size(str, Enum):
     S = "S"; M = "M"; L = "L"; XL = "XL"; XXL = "XXL"; XXXL = "XXXL"
@@ -42,19 +47,33 @@ class Size(str, Enum):
     S40 = "40"; S41 = "41"; S42 = "42"; S43 = "43"; S44 = "44"; S45 = "45"
 
 class Color(str, Enum):
-    WHITE = "White"; BLACK = "Black"; GRAY = "Gray"
-    RED = "Red"; BLUE = "Blue"; GREEN = "Green"
-    YELLOW = "Yellow"; PINK = "Pink"; PURPLE = "Purple"
-    BROWN = "Brown"; MULTI = "Multi-color" 
+    WHITE = "WHITE"
+    BLACK = "BLACK" 
+    GRAY = "GRAY"
+    RED = "RED"
+    BLUE = "BLUE" 
+    GREEN = "GREEN"
+    YELLOW = "YELLOW" 
+    PINK = "PINK"
+    PURPLE = "PURPLE"
+    BROWN = "BROWN" 
+    MULTI = "MULTI-COLOR" 
 
 class Material(str, Enum):
-    COTTON = "cotton"; LEATHER = "leather"; POLYESTER = "polyester"
+    COTTON = "COTTON"
+    LEATHER = "LEATHER" 
+    POLYESTER = "POLYESTER"
 
 class Season(str, Enum):
-    SPRING = "spring"; SUMMER = "summer"; AUTUMN = "autumn"; WINTER = "winter"
+    SPRING = "SPRING" 
+    SUMMER = "SUMMER" 
+    AUTUMN = "AUTUMN" 
+    WINTER = "WINTER"
 
 class Condition(str, Enum):
-    NEW = "new"; OPEN_BOX = "open_box"; REFURBISHED = "refurbished"
+    NEW = "NEW"
+    OPEN_BOX = "OPEN_BOX"
+    REFURBISHED = "REFURBISHED"
 
 # --- MAIN ENTITIES ---
 
@@ -70,9 +89,9 @@ class Product:
     status: ProductStatus
     viewCount: int
     category: Category
-    brand: Brand
-    color: Color
     slug: Optional[str] = None
+    brand: Optional[Brand] = None
+    color: Optional[Color] = None
     description: Optional[str] = None
     image: Optional[ProductImage] = None  # avatar image
     images: List[ProductImage] = field(default_factory=list)

@@ -63,6 +63,7 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
 
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductPolymorphicSerializer
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         """
@@ -70,8 +71,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
         keyword = self.request.query_params.get('q', None)
         if keyword:
-            return SearchProductsQuery.execute(keyword)
-        return ProductModel.objects.all()
+            return SearchProductsQuery.execute(keyword).select_related('category', 'brand').prefetch_related('images')
+        return ProductModel.objects.all().select_related('category', 'brand').prefetch_related('images')
 
     @action(detail=False, methods=['get'], url_path='featured')
     def get_featured_products(self, request):

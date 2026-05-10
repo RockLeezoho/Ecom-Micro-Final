@@ -3,4 +3,3 @@ __pycache__/
 models/
 scripts/
 .git
-/modules/seeds/data_raw/

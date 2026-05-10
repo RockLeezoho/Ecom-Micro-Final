@@ -34,6 +34,8 @@ INSTALLED_APPS = [
 	'django.contrib.staticfiles',
     'django_filters',
 	'rest_framework',
+    'modules.domain',          # ← Add
+    'modules.application', 
 	'modules.infrastructure',
 	'modules.presentation',
 ]
@@ -64,11 +66,14 @@ INTERNAL_SERVICE_TOKEN = os.getenv('INTERNAL_SERVICE_TOKEN', '')
 DATABASES = {
 	'default': {
 		'ENGINE': os.getenv('POSTGRES_ENGINE', 'django.db.backends.postgresql'),
-		'NAME': os.getenv('DB_NAME', 'product-db'),
-		'USER': os.getenv('DB_USER', 'product-user'),
-		'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
-		'HOST': os.getenv('DB_HOST', 'product-db'),
-		'PORT': os.getenv('DB_PORT', '5432'),
+		# Pooler-first config: DB_* has priority, POSTGRES_* kept for compatibility.
+		'NAME': os.getenv('DB_NAME', os.getenv('POSTGRES_DB', 'product-db')),
+		'USER': os.getenv('DB_USER', os.getenv('POSTGRES_USER', 'product_user')),
+		'PASSWORD': os.getenv('DB_PASSWORD', os.getenv('POSTGRES_PASSWORD', '123456')),
+		'HOST': os.getenv('DB_HOST', os.getenv('POSTGRES_HOST', 'product-db')),
+		'PORT': os.getenv('DB_PORT', os.getenv('POSTGRES_PORT', '5432')),
+		'CONN_MAX_AGE': 600,
+		'ATOMIC_REQUESTS': False,
 	}
 }
 # Cloudinary config

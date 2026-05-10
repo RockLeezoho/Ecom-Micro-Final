@@ -14,7 +14,7 @@ class StockReservationModel(models.Model):
     quantity = models.IntegerField()
     expires_at = models.DateTimeField(db_index=True)
     STATUS_CHOICES = [(tag.value, tag.value) for tag in DomainStatus]
-    status = models.CharField(null=True, max_length=50, choices=STATUS_CHOICES)
+    status = models.CharField(db_index=True, null=True, max_length=50, choices=STATUS_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)  # Thêm để track khi release
     

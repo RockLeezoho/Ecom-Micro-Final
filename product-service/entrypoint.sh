@@ -1,16 +1,12 @@
 #!/bin/sh
 set -e
 
-# ==========================================
-# Product Service Entrypoint
-# Enterprise Clean Version
-# ==========================================
-
-PGHOST=${POSTGRES_HOST:-product-db}
-PGPORT=${POSTGRES_PORT:-5432}
-APP_DB=${POSTGRES_DB:-product-db}
-APP_USER=${POSTGRES_USER:-product-user}
-APP_PASS=${POSTGRES_PASSWORD:-123456}
+# Pooler-first defaults. DB_* has priority, POSTGRES_* is backward-compatible.
+PGHOST=${DB_HOST:-${POSTGRES_HOST:-pgbouncer}}
+PGPORT=${DB_PORT:-${POSTGRES_PORT:-6432}}
+APP_DB=${DB_NAME:-${POSTGRES_DB:-product-db}}
+APP_USER=${DB_USER:-${POSTGRES_USER:-product-user}}
+APP_PASS=${DB_PASSWORD:-${POSTGRES_PASSWORD:-product123456}}
 
 export PGPASSWORD="$APP_PASS"
 
@@ -25,25 +21,25 @@ echo "======================================"
 # ==========================================
 # Wait PostgreSQL Ready
 # ==========================================
-echo "--- Đang đợi PostgreSQL sẵn sàng ---"
+echo "--- Waiting for PostgreSQL/Pooler ---"
 
 until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$APP_USER" >/dev/null 2>&1; do
-  echo "PostgreSQL chưa sẵn sàng... đợi 2s"
+  echo "Database not ready yet... waiting 2s"
   sleep 2
 done
 
-echo "--- PostgreSQL đã sẵn sàng ---"
+echo "--- Database is ready ---"
 
 
 # ==========================================
 # Test Connection
 # ==========================================
-echo "--- Kiểm tra kết nối DB ---"
+echo "--- Testing DB connection ---"
 until psql -h "$PGHOST" -p "$PGPORT" -U "$APP_USER" -d "$APP_DB" -c "SELECT 1;" >/dev/null 2>&1; do
-  echo "Đăng nhập DB thất bại... thử lại sau 2s"
+  echo "DB login failed... retry in 2s"
   sleep 2
 done
-echo "--- Kết nối DB thành công ---"
+echo "--- DB connection OK ---"
 
 # ==========================================
 # Skip auto migrate for utility commands
@@ -51,7 +47,7 @@ echo "--- Kết nối DB thành công ---"
 if [ "$1" = "python" ] && [ "$2" = "manage.py" ]; then
     case "$3" in
         makemigrations|shell|dbshell|createsuperuser|collectstatic)
-            echo "--- Utility mode: bỏ qua auto migrate ---"
+            echo "--- Utility mode: skipping auto migrate ---"
             exec "$@"
             ;;
     esac
@@ -60,17 +56,17 @@ fi
 # ==========================================
 # Auto Migrate
 # ==========================================
-echo "--- Đang migrate database ---"
+echo "--- Running database migrations ---"
 python manage.py migrate --noinput
 
 # ==========================================
 # Seed Data
 # ==========================================
-echo "--- Đang seed dữ liệu sản phẩm ---"
-python manage.py seed_products || true
+echo "--- Seeding product data ---"
+python manage.py seed_products --refresh || true
 
 # ==========================================
 # Start Application
 # ==========================================
-echo "--- Khởi động Product Service ---"
+echo "--- Starting Product Service ---"
 exec "$@"
