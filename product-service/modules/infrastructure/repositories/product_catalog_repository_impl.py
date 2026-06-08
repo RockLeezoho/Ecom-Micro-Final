@@ -36,7 +36,11 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
     ) -> list[Product]:
         category_ids = category_scope_ids or self._get_category_scope_ids(category.id)
         models = (
-            ProductModel.objects.filter(category_id__in=category_ids)
+            ProductModel.objects.filter(
+                category_id__in=category_ids,
+                stock__gt=0,
+                status=ProductStatus.NEW.value,
+            )
             .select_related('category', 'brand')
             .prefetch_related('images')
             .order_by('-created_at')[:limit]
@@ -51,7 +55,12 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
     ) -> list[Product]:
         category_ids = category_scope_ids or self._get_category_scope_ids(category.id)
         models = (
-            ProductModel.objects.filter(category_id__in=category_ids, rating__gte=4.9)
+            ProductModel.objects.filter(
+                category_id__in=category_ids,
+                rating__gte=4.9,
+                stock__gt=0,
+                status=ProductStatus.SELLING.value,
+            )
             .select_related('category', 'brand')
             .prefetch_related('images')
             .order_by('-rating')[:limit]
@@ -59,7 +68,15 @@ class ProductCatalogRepositoryImpl(ProductCatalogRepository):
         return [self._to_entity(model) for model in models]
 
     def get_products_by_ids(self, product_ids: list[str]) -> list[Product]:
-        models = ProductModel.objects.filter(id__in=product_ids).select_related('category', 'brand').prefetch_related('images')
+        models = (
+            ProductModel.objects.filter(
+                id__in=product_ids,
+                stock__gt=0,
+                status=ProductStatus.SELLING.value,
+            )
+            .select_related('category', 'brand')
+            .prefetch_related('images')
+        )
         return [self._to_entity(model) for model in models]
 
     def get_related_fallback_products(self, product: Product, limit: int = 8) -> list[Product]:

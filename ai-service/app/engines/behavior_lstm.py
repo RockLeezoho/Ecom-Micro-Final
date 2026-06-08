@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class BehaviorLSTM(nn.Module):
-    def __init__(self, num_prods, num_acts, embed_dim=128, hidden_dim=256, n_layers=2, dropout=0.38670506350007827):
+    def __init__(self, num_prods, num_acts, embed_dim=128, hidden_dim=128, n_layers=1, dropout=0.25):
         super().__init__()
         self.prod_emb = nn.Embedding(num_prods, embed_dim)
         self.act_emb = nn.Embedding(num_acts, embed_dim)

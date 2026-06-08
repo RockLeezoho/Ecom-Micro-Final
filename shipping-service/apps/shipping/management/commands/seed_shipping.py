@@ -9,6 +9,33 @@ from apps.shipping.models import Carrier, Shipment, ShipmentLog, ShipmentStatus,
 class Command(BaseCommand):
     help = "Seed sample carriers and shipments for development/testing"
 
+    shipping_method_rows = [
+        {
+            "code": "STANDARD",
+            "name": "Giao hàng tiêu chuẩn",
+            "fee": Decimal("15000.00"),
+            "sort_order": 1,
+        },
+        {
+            "code": "EXPRESS",
+            "name": "Giao hàng hỏa tốc",
+            "fee": Decimal("30000.00"),
+            "sort_order": 2,
+        },
+    ]
+
+    def seed_shipping_methods(self):
+        for row in self.shipping_method_rows:
+            ShippingMethod.objects.update_or_create(
+                code=row["code"],
+                defaults={
+                    "name": row["name"],
+                    "fee": row["fee"],
+                    "is_active": True,
+                    "sort_order": row["sort_order"],
+                },
+            )
+
     def handle(self, *args, **kwargs):
         self.stdout.write("Seeding shipping data...")
 
@@ -25,7 +52,7 @@ class Command(BaseCommand):
                 "user_id": "8d5b16e4-862d-4861-b4d2-79069d239c04",
                 "carrier_code": "ghn",
                 "carrier_shipment_id": "GHN111111",
-                "method": ShippingMethod.STANDARD,
+                "method": "STANDARD",
                 "status": ShipmentStatus.PREPARING,
                 "shipping_address_snapshot": {
                     "address": "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
@@ -44,7 +71,7 @@ class Command(BaseCommand):
                 "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
                 "carrier_code": "ghtk",
                 "carrier_shipment_id": "GHTK222222",
-                "method": ShippingMethod.EXPRESS,
+                "method": "EXPRESS",
                 "status": ShipmentStatus.IN_TRANSIT,
                 "shipping_address_snapshot": {
                     "address": "12 Nguyễn Trãi, Thanh Xuân, Hà Nội",
@@ -60,6 +87,7 @@ class Command(BaseCommand):
         ]
 
         with transaction.atomic():
+            self.seed_shipping_methods()
             carrier_map = {}
             for carrier_data in sample_carriers:
                 carrier, _ = Carrier.objects.update_or_create(

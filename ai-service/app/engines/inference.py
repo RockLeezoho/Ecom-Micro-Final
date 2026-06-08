@@ -74,7 +74,7 @@ class InferenceEngine:
         ORDER BY weight DESC LIMIT 10
         """
         try:
-            from app.settings import settings
+            import app.settings as settings
             with ml_loader.graph_driver.session(database=settings.NEO4J_DATABASE) as session:
                 result = session.run(query, pid=last_prod_id)
                 records = list(result)
@@ -90,6 +90,61 @@ class InferenceEngine:
             return scores
         except Exception as e:
             logger.error(f"Lỗi trong query_graph: {e}")
+            return {}
+
+    @staticmethod
+    def query_category_products(category_key, top_k=10):
+        """
+        Truy vấn sản phẩm theo category key.
+
+        Hỗ trợ match theo category id, name, hoặc slug nếu dữ liệu Neo4j có đủ thuộc tính.
+        Nếu không match được category cụ thể, fallback về danh sách sản phẩm có rating cao nhất.
+        """
+        if not category_key:
+            category_key = ""
+
+        query = """
+        MATCH (p:Product)
+        OPTIONAL MATCH (p)-[:BELONGS_TO]->(c:Category)
+        WHERE toLower(coalesce(c.id, '')) = toLower($category_key)
+           OR toLower(coalesce(c.name, '')) = toLower($category_key)
+           OR toLower(coalesce(c.slug, '')) = toLower($category_key)
+        RETURN p.id AS id, coalesce(p.rating, 0) AS rating, coalesce(p.stock, 0) AS stock
+        ORDER BY rating DESC, stock DESC, id ASC
+        LIMIT $top_k
+        """
+
+        fallback_query = """
+        MATCH (p:Product)
+        RETURN p.id AS id, coalesce(p.rating, 0) AS rating, coalesce(p.stock, 0) AS stock
+        ORDER BY rating DESC, stock DESC, id ASC
+        LIMIT $top_k
+        """
+
+        try:
+            import app.settings as settings
+            with ml_loader.graph_driver.session(database=settings.NEO4J_DATABASE) as session:
+                result = list(session.run(query, category_key=str(category_key), top_k=top_k))
+                if not result:
+                    result = list(session.run(fallback_query, top_k=top_k))
+
+                scores = {}
+                max_rating = max((float(record["rating"]) for record in result), default=0.0)
+                max_stock = max((float(record["stock"]) for record in result), default=0.0)
+
+                for record in result:
+                    rating = float(record["rating"])
+                    stock = float(record["stock"])
+                    score = 0.0
+                    if max_rating > 0:
+                        score += rating / max_rating
+                    if max_stock > 0:
+                        score += 0.2 * (stock / max_stock)
+                    scores[str(record["id"])] = score
+
+                return scores
+        except Exception as e:
+            logger.error(f"Lỗi trong query_category_products: {e}")
             return {}
 
     @staticmethod

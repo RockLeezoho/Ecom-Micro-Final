@@ -4,11 +4,19 @@ import type { Product } from "../types";
 const BASE = "/api/products/admin/products/";
 
 function mapProduct(item: any): Product {
+  const categoryValue = item.category?.slug || item.category?.name || item.category || 'books';
+  const normalized = String(categoryValue).toLowerCase();
+  const category = normalized.includes('elect')
+    ? 'thiet-bi-dien-tu'
+    : normalized.includes('fashion')
+      ? 'thoi-trang-may-mac'
+      : 'sach-luu-tru';
   return {
     id: String(item.id),
     name: item.name,
     price: Number(item.price || 0),
-    category: "books",
+    status: item.status,
+    category,
     subCategory: "general",
     rating: Number(item.rating || 0),
     origin: item.origin || "N/A",
@@ -50,7 +58,7 @@ export async function createAdminProduct(payload: Partial<Product>) {
       stock: payload.stock || 0,
       rating: payload.rating || 0,
       status: "ACTIVE",
-      category: payload.categoryId,
+      category: payload.categoryId || payload.category,
     }),
   });
 }
@@ -63,7 +71,7 @@ export async function updateAdminProduct(id: string, payload: Partial<Product>) 
       origin: payload.origin,
       price: payload.price,
       stock: payload.stock,
-      category: payload.categoryId,
+      category: payload.categoryId || payload.category,
     }),
   });
 }

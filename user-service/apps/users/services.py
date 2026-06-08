@@ -8,6 +8,7 @@ from rest_framework.exceptions import ValidationError
 def generate_tokens_for_user(user: User):
     """Tạo bộ đôi Access và Refresh Token cho User"""
     refresh = RefreshToken.for_user(user)
+    refresh["role"] = (getattr(user, "role", "") or "").lower()
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token),
@@ -24,6 +25,7 @@ def user_create_customer(username, email, password, phone_number, **extra_fields
     weight = extra_fields.pop('weight', None)
     foot_length = extra_fields.pop('foot_length', None)
     avatar_url = extra_fields.pop('avatar_url', None)
+    is_active = extra_fields.pop('is_active', True)
 
     customer = Customer.objects.create(
         username=username,
@@ -34,11 +36,11 @@ def user_create_customer(username, email, password, phone_number, **extra_fields
         date_of_birth=date_of_birth,  
         gender=gender,                
         phone_number=phone_number,
-        role='customer',
+        role='CUSTOMER',
         height=height,               
         weight=weight,                
         foot_length=foot_length,      
-        is_active=True,
+        is_active=is_active,
         avatar_url=avatar_url,
         **extra_fields
     )

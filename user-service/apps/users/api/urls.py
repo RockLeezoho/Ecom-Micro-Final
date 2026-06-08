@@ -5,7 +5,7 @@ from .views import (
     LogoutApi, 
     CustomerProfileApi,
     AddressListCreateApi,
-    AddressDeleteApi,
+    AddressDetailApi,
     FavoriteProductListCreateApi,
     FavoriteProductDeleteApi,
 )
@@ -21,7 +21,7 @@ urlpatterns = [
     path('me/customer/', CustomerProfileApi.as_view(), name='customer-profile'),
 
     path('addresses/', AddressListCreateApi.as_view(), name='address-list'),
-    path('addresses/<uuid:pk>/', AddressDeleteApi.as_view(), name='address-delete'),
+    path('addresses/<uuid:pk>/', AddressDetailApi.as_view(), name='address-detail'),
     path('favorites/', FavoriteProductListCreateApi.as_view(), name='favorite-product-list-create'),
-    path('favorites/<uuid:product_id>/', FavoriteProductDeleteApi.as_view(), name='favorite-product-delete'),
+    path('favorites/<str:product_id>/', FavoriteProductDeleteApi.as_view(), name='favorite-product-delete'),
 ]

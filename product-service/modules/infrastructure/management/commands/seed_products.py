@@ -25,6 +25,22 @@ class Command(BaseCommand):
         'thoi-trang-may-mac': ['ao', 'quan', 'giay']
     }
 
+    CATEGORY_NAMES = {
+        'sach-luu-tru': 'Sách lưu trữ',
+        'thiet-bi-dien-tu': 'Thiết bị điện tử',
+        'thoi-trang-may-mac': 'Thời trang may mặc',
+        'giao-trinh': 'Giáo trình',
+        'tieu-thuyet': 'Tiểu thuyết',
+        'truyen-tranh': 'Truyện tranh',
+        'dien-thoai': 'Điện thoại',
+        'laptop': 'Laptop',
+        'tu-lanh': 'Tủ lạnh',
+        'dieu-hoa': 'Điều hòa',
+        'ao': 'Áo',
+        'quan': 'Quần',
+        'giay': 'Giày'
+    }
+
     def add_arguments(self, parser):
         parser.add_argument('--refresh', action='store_true', help='Xóa toàn bộ dữ liệu cũ')
         parser.add_argument('--stop-on-error', action='store_true', help='Dừng nếu gặp lỗi')
@@ -53,7 +69,7 @@ class Command(BaseCommand):
         self.stdout.write('📂 Đang khởi tạo cấu trúc danh mục...')
         parent_objs = {}
         for p_slug in self.PARENT_MAPPING.keys():
-            p_name = p_slug.replace('-', ' ').title()
+            p_name = self.CATEGORY_NAMES.get(p_slug, p_slug.replace('-', ' ').title())
             obj, _ = CategoryModel.objects.get_or_create(
                 slug=p_slug, 
                 defaults={'name': p_name, 'parent': None}
@@ -79,10 +95,12 @@ class Command(BaseCommand):
             except: return default
 
         # 5. Đọc CSV và xử lý
-        with open(file_path, mode='r', encoding='utf-8') as f:
+        with open(file_path, mode='r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row_num, row in enumerate(reader, 1):
                 try:
+                    if 'id' not in row and '\ufeffid' in row:
+                        row['id'] = row.get('\ufeffid', '')
                     p_id = row['id']
                     cat_slug = row.get('category') # Lấy slug danh mục con (ví dụ: giao-trinh)
                     p_type = row.get('product_type')
@@ -92,7 +110,7 @@ class Command(BaseCommand):
                     category, _ = CategoryModel.objects.get_or_create(
                         slug=cat_slug,
                         defaults={
-                            'name': cat_slug.replace('-', ' ').title(),
+                            'name': self.CATEGORY_NAMES.get(cat_slug, cat_slug.replace('-', ' ').title()),
                             'parent': parent_obj # Gán ID danh mục cha ở đây
                         }
                     )

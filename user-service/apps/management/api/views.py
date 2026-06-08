@@ -39,8 +39,12 @@ from .serializers import (
 
 class AdminUserViewSet(viewsets.ModelViewSet):
     """Admin-only user management (list, retrieve, update, delete)."""
-
-    queryset = User.objects.all().order_by('id')
+    queryset = (
+        User.objects.select_related('customer', 'staff', 'admin')
+        .prefetch_related('customer__addresses', 'customer__favorite_products')
+        .all()
+        .order_by('id')
+    )
     serializer_class = AdminUserSerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
     filter_backends = [filters.SearchFilter]
@@ -65,7 +69,7 @@ class BaseManagementLoginApi(APIView):
             )
         if not user.is_active:
             return Response({"error": "Tài khoản đã bị khóa"}, status=status.HTTP_403_FORBIDDEN)
-        if self.allowed_roles and user.role not in self.allowed_roles:
+        if self.allowed_roles and user.role.lower() not in [r.lower() for r in self.allowed_roles]:
             return Response(
                 {"error": "Bạn không có quyền đăng nhập hệ thống này."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -106,7 +110,14 @@ class BaseProfileApi(APIView):
     def get(self, request):
         if self.allowed_role and request.user.role != self.allowed_role:
             return Response({"error": "Không có quyền truy cập"}, status=403)
-        data = get_user_profile(user=request.user)
+        user = (
+            User.objects.select_related('customer', 'staff', 'admin')
+            .prefetch_related('customer__addresses', 'customer__favorite_products')
+            .filter(pk=request.user.pk)
+            .first()
+            or request.user
+        )
+        data = get_user_profile(user=user)
         return Response(data)
 
     def put(self, request):
@@ -159,14 +170,14 @@ class StaffViewSet(viewsets.ViewSet):
 
     def retrieve(self, request, pk=None):
         try:
-            staff = Staff.objects.get(pk=pk)
+            staff = Staff.objects.select_related('user_ptr').get(pk=pk)
             return Response(StaffAdminGetSerializer(staff).data)
         except (Staff.DoesNotExist, DjangoValidationError, DRFValidationError):
             return Response({"error": "Không tìm thấy đối tượng"}, status=status.HTTP_404_NOT_FOUND)
 
     def update(self, request, pk=None):
         try:
-            staff = Staff.objects.get(pk=pk)
+            staff = Staff.objects.select_related('user_ptr').get(pk=pk)
             data = request.data.copy()
             avatar_file = request.FILES.get('avatar')
             if avatar_file:
@@ -206,14 +217,14 @@ class CustomerViewSet(viewsets.ViewSet):
 
     def retrieve(self, request, pk=None):
         try:
-            customer = Customer.objects.get(pk=pk)
+            customer = Customer.objects.select_related('user_ptr').prefetch_related('addresses').get(pk=pk)
             return Response(CustomerAdminGetSerializer(customer).data)
         except (Customer.DoesNotExist, DjangoValidationError, DRFValidationError):
             return Response({"error": "Không tìm thấy đối tượng"}, status=status.HTTP_404_NOT_FOUND)
 
     def update(self, request, pk=None):
         try:
-            customer = Customer.objects.get(pk=pk)
+            customer = Customer.objects.select_related('user_ptr').prefetch_related('addresses').get(pk=pk)
             data = request.data.copy()
             avatar_file = request.FILES.get('avatar')
             if avatar_file:

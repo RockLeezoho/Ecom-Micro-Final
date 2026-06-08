@@ -66,10 +66,12 @@ DATABASES = {
     'default': {
         'ENGINE': os.getenv('MYSQL_ENGINE', 'django.db.backends.mysql'),
         'NAME': os.getenv('DB_NAME', 'cart-db'),
-        'USER': os.getenv('DB_USER', 'cart-user'),
+        'USER': os.getenv('DB_USER', 'cart_user'),
         'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
         'HOST': os.getenv('DB_HOST', 'cart-db'),
         'PORT': os.getenv('DB_PORT', '3306'),
+        'CONN_MAX_AGE': 600,
+        'ATOMIC_REQUESTS': False,
         'OPTIONS': {
             'charset': 'utf8mb4',
         },

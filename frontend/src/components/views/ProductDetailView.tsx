@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Star, ShoppingCart, ShoppingBag, Heart, ChevronLeft, Truck, ShieldCheck, RefreshCw, Box } from 'lucide-react';
 import { Product } from '../../types';
-import { t } from '../../utils/translate';
+import { t, formatEnum } from '../../utils/translate';
 
 interface ProductDetailProps {
   product: Product;
@@ -21,6 +21,8 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(product.image);
+    const isOutOfStock = Number(product.stock || 0) <= 0;
+    const maxQuantity = Math.max(1, Number(product.stock || 0));
 
     const getCategoryLabel = (cat: string) => {
         switch(cat) {
@@ -125,21 +127,29 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
 
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center bg-[#F7FAFC] border border-border-theme rounded-md p-1 w-fit">
-                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 hover:bg-white rounded transition-all"><Box size={14} /></button>
+                                                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 hover:bg-white rounded transition-all"><Box size={14} /></button>
                         <span className="w-8 text-center text-sm font-bold">{quantity}</span>
-                        <button onClick={() => setQuantity(quantity + 1)} className="p-2 hover:bg-white rounded transition-all"><Box size={14} /></button>
+                                                <button
+                                                    onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
+                                                    disabled={isOutOfStock || quantity >= maxQuantity}
+                                                    className="p-2 hover:bg-white rounded transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                >
+                                                    <Box size={14} />
+                                                </button>
                     </div>
                     
                     <div className="flex gap-2">
                       <button 
-                          onClick={() => onAddToCart(product, quantity)}
-                          className="flex-1 btn-dense bg-[#EDF2F7] text-[#2D3748] hover:bg-[#E2E8F0] flex items-center justify-center gap-2"
+                                                    onClick={() => !isOutOfStock && onAddToCart(product, quantity)}
+                                                    disabled={isOutOfStock}
+                                                    className="flex-1 btn-dense bg-[#EDF2F7] text-[#2D3748] hover:bg-[#E2E8F0] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                           <ShoppingCart size={16} /> {t('add_to_cart')}
                       </button>
                       <button 
-                          onClick={() => onBuyNow(product, quantity)}
-                          className="flex-1 btn-dense bg-primary text-white hover:bg-opacity-90 flex items-center justify-center gap-2"
+                                                    onClick={() => !isOutOfStock && onBuyNow(product, quantity)}
+                                                    disabled={isOutOfStock}
+                                                    className="flex-1 btn-dense bg-primary text-white hover:bg-opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                           <ShoppingBag size={16} /> {t('buy_now')}
                       </button>
@@ -155,12 +165,12 @@ const ProductDetailView: React.FC<ProductDetailProps> = ({
       <div className="bg-[#EDF2F7] rounded-lg p-6 border border-border-theme flex justify-between items-center shadow-sm">
                 <div>
                 <h3 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">{t('manufacturer')}</h3>
-                <p className="text-lg font-bold text-text-main italic">{t('imported_prefix', { value: product.origin })}</p>
+                <p className="text-lg font-bold text-text-main italic">{t('imported_prefix', { value: formatEnum(product.origin) })}</p>
             </div>
          <div className="flex gap-8">
             <div className="text-center">
                      <div className="text-[10px] text-[#718096] uppercase font-bold mb-1">{t('stock_label')}</div>
-                     <div className="text-sm font-bold text-text-main">{product.stock} {t('add') /* reuse as 'products' target */}</div>
+                                         <div className="text-sm font-bold text-text-main">{product.stock} {t('add') /* reuse as 'products' target */}</div>
             </div>
             <div className="text-center">
                       <div className="text-[10px] text-[#718096] uppercase font-bold mb-1">{t('quality_label')}</div>

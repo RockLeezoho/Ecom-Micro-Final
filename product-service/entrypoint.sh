@@ -60,10 +60,16 @@ echo "--- Running database migrations ---"
 python manage.py migrate --noinput
 
 # ==========================================
-# Seed Data
+# Seed Data (optional / non-blocking)
+# Set PRODUCT_SEED_ON_STARTUP=1 to enable seeding at startup.
+# When enabled, seeding runs in background and won't block the container.
 # ==========================================
-echo "--- Seeding product data ---"
-python manage.py seed_products --refresh || true
+if [ "${PRODUCT_SEED_ON_STARTUP:-0}" = "1" ]; then
+  echo "--- Seeding product data (background) ---"
+  (python manage.py seed_products --refresh > /tmp/product-seed.log 2>&1 &)
+else
+  echo "[INFO] Skipping product seed on startup (PRODUCT_SEED_ON_STARTUP=${PRODUCT_SEED_ON_STARTUP:-0})"
+fi
 
 # ==========================================
 # Start Application

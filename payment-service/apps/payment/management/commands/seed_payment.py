@@ -3,11 +3,41 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.payment.models import Payment, PaymentMethod, PaymentStatus
+from apps.payment.models import Payment, PaymentMethod as PaymentMethodModel, PaymentStatus
 
 
 class Command(BaseCommand):
     help = "Seed sample payments for development/testing"
+
+    payment_method_rows = [
+        {
+            "code": "COD",
+            "name": "Thanh toán khi nhận hàng (COD)",
+            "description": "Thanh toán tiền mặt khi nhận hàng",
+            "provider": None,
+            "sort_order": 1,
+        },
+        {
+            "code": "BANK_TRANSFER",
+            "name": "Chuyển khoản ngân hàng",
+            "description": "Thanh toán qua chuyển khoản",
+            "provider": "bank",
+            "sort_order": 2,
+        }
+    ]
+
+    def seed_payment_methods(self):
+        for row in self.payment_method_rows:
+            PaymentMethodModel.objects.update_or_create(
+                code=row["code"],
+                defaults={
+                    "name": row["name"],
+                    "description": row["description"],
+                    "provider": row["provider"],
+                    "is_active": True,
+                    "sort_order": row["sort_order"],
+                },
+            )
 
     def handle(self, *args, **kwargs):
         self.stdout.write("Seeding payment data...")
@@ -19,7 +49,7 @@ class Command(BaseCommand):
                 "user_id": "8d5b16e4-862d-4861-b4d2-79069d239c04",
                 "amount": Decimal("35998000.00"),
                 "currency": "VND",
-                "method": PaymentMethod.BANK_TRANSFER,
+                "method": "BANK_TRANSFER",
                 "status": PaymentStatus.PENDING,
                 "reference_number": "REF-ORDER-111111",
             },
@@ -29,25 +59,20 @@ class Command(BaseCommand):
                 "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
                 "amount": Decimal("18489500.00"),
                 "currency": "VND",
-                "method": PaymentMethod.COD,
+                "method": "COD",
                 "status": PaymentStatus.AWAITING_PAYMENT,
                 "reference_number": "REF-ORDER-222222",
-            },
-            {
-                "id": "cccc3333-3333-3333-3333-333333333333",
-                "order_id": "33333333-3333-3333-3333-333333333333",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
-                "amount": Decimal("1616000.00"),
-                "currency": "VND",
-                "method": PaymentMethod.CREDIT_CARD,
-                "status": PaymentStatus.COMPLETED,
-                "reference_number": "REF-ORDER-333333",
-                "external_transaction_id": "SIM-33333333",
-            },
+            }
         ]
 
         with transaction.atomic():
+            self.seed_payment_methods()
             for payment_data in sample_payments:
+                method_code = payment_data.get("method")
+                method_obj = PaymentMethodModel.objects.filter(code__iexact=(method_code or '')).first()
+                if method_obj is None:
+                    self.stdout.write(self.style.WARNING(f"PaymentMethod '{method_code}' not found; skipping payment {payment_data['id']}"))
+                    continue
                 Payment.objects.update_or_create(
                     id=payment_data["id"],
                     defaults={
@@ -55,7 +80,7 @@ class Command(BaseCommand):
                         "user_id": payment_data["user_id"],
                         "amount": payment_data["amount"],
                         "currency": payment_data["currency"],
-                        "method": payment_data["method"],
+                        "method": method_obj,
                         "status": payment_data["status"],
                         "reference_number": payment_data["reference_number"],
                         "external_transaction_id": payment_data.get("external_transaction_id"),

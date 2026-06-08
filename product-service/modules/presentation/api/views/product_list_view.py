@@ -19,7 +19,7 @@ class ProductListView(ListAPIView):
         category_slug = self.request.query_params.get('category')
         subcategory_slug = self.request.query_params.get('subcategory')
         if not category_slug and not subcategory_slug:
-            return ProductModel.objects.all().select_related('brand', 'author').prefetch_related('images')
+            return ProductModel.objects.all().select_related('brand', 'category').prefetch_related('images')
 
         target_slug = subcategory_slug or category_slug
         category = get_object_or_404(CategoryModel, slug=target_slug)
@@ -32,7 +32,7 @@ class ProductListView(ListAPIView):
             category_ids.extend([child.id for child in children])
             stack.extend(children)
 
-        return ProductModel.objects.filter(category_id__in=category_ids).select_related('brand', 'author').prefetch_related('images')
+        return ProductModel.objects.filter(category_id__in=category_ids).select_related('brand', 'category').prefetch_related('images')
 
 class ProductFilterMetaView(GenericAPIView):
     permission_classes = [AllowAny]
@@ -45,10 +45,7 @@ class ProductFilterMetaView(GenericAPIView):
         data = {
             "origins": list(qs.values_list('origin', flat=True).distinct()),
             "brands": list(qs.values_list('brand__name', flat=True).distinct()),
-            "authors": list(qs.values_list('author__name', flat=True).distinct()),
-            "languages": list(qs.values_list('language', flat=True).distinct()),
             "colors": list(qs.values_list('color', flat=True).distinct()),
-            "materials": list(qs.values_list('material', flat=True).distinct()),
             "price_min": qs.order_by('price').first().price if qs.exists() else None,
             "price_max": qs.order_by('-price').first().price if qs.exists() else None,
         }

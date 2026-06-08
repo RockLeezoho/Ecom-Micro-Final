@@ -1,6 +1,14 @@
 from rest_framework import serializers
+from apps.shipping.models import ShippingMethod
 
-class ShippingMethodSerializer(serializers.Serializer):
+
+class CarrierSerializer(serializers.Serializer):
     code = serializers.CharField()
     name = serializers.CharField()
-    fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    contact_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    fee = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+class ShippingMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShippingMethod
+        fields = ['code', 'name', 'fee']

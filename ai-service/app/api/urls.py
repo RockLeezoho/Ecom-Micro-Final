@@ -8,9 +8,15 @@ router = APIRouter()
 ai_service = AIService()
 
 @router.get("/recommend", response_model=RecommendResponse)
-async def get_recommend(user_id: str = Query(...)):
+async def get_recommend(user_id: str = Query(...), category_key: str | None = Query(None)):
     try:
-        product_ids = await ai_service.get_hybrid_recommendations(user_id, [], [], "")
+        product_ids = await ai_service.get_recommendations(
+            user_id=user_id,
+            history_prods=[],
+            history_acts=[],
+            user_query="",
+            category_key=category_key,
+        )
     except Exception:
         product_ids = []
     return {"user_id": user_id, "recommended_product_ids": product_ids}
@@ -19,11 +25,12 @@ async def get_recommend(user_id: str = Query(...)):
 @router.post("/recommend")
 async def post_recommend(request: RecommendRequest):
     try:
-        product_ids = await ai_service.get_hybrid_recommendations(
+        product_ids = await ai_service.get_recommendations(
             request.user_id,
             request.history_prods,
             request.history_acts,
             request.user_query,
+            request.category_key,
         )
     except Exception:
         product_ids = []

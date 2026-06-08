@@ -18,7 +18,18 @@ export default defineConfig(({mode}) => {
     server: {
       port: 3000,
       host: "0.0.0.0",
-      hmr: process.env.DISABLE_HMR !== 'true',
+      hmr: process.env.DISABLE_HMR === 'true'
+        ? false
+        : {
+            host: 'localhost',
+            port: 3000,
+            clientPort: 3000,
+            protocol: 'ws',
+          },
+      watch: {
+        usePolling: true,
+        interval: 1000,
+      },
       proxy: {
         '/api': {
           target: process.env.VITE_API_PROXY_URL || 'http://localhost:8080',

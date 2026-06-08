@@ -26,11 +26,13 @@ class TestCreateStockReservationCommand:
     """Test CreateStockReservationCommand"""
 
     @pytest.fixture
-    def product(self):
+    def product(self, test_category):
         """Tạo product fixture"""
         product = ProductModel.objects.create(
             name="Test Product",
             slug="test-product",
+            category=test_category,
+            origin="VN",
             price=100.0,
             import_price=50.0,
             stock=100,
@@ -136,11 +138,13 @@ class TestReleaseStockReservationCommand:
     """Test ReleaseStockReservationCommand"""
 
     @pytest.fixture
-    def setup_reservation(self):
+    def setup_reservation(self, test_category):
         """Setup: Create product + reservation"""
         product = ProductModel.objects.create(
             name="Test Product",
             slug="test-product",
+            category=test_category,
+            origin="VN",
             price=100.0,
             import_price=50.0,
             stock=100,
@@ -197,11 +201,13 @@ class TestConfirmStockReservationCommand:
     """Test ConfirmStockReservationCommand"""
 
     @pytest.fixture
-    def setup_order_with_reservations(self):
+    def setup_order_with_reservations(self, test_category):
         """Setup: Create order with multiple reservations"""
         product1 = ProductModel.objects.create(
             name="Product 1",
             slug="product-1",
+            category=test_category,
+            origin="VN",
             price=100.0,
             import_price=50.0,
             stock=100,
@@ -209,6 +215,8 @@ class TestConfirmStockReservationCommand:
         product2 = ProductModel.objects.create(
             name="Product 2",
             slug="product-2",
+            category=test_category,
+            origin="VN",
             price=200.0,
             import_price=100.0,
             stock=50,

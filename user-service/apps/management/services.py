@@ -14,13 +14,13 @@ def user_update_profile(user: User, data: dict):
         if field in data:
             setattr(user, field, data[field])
 
-    if user.role == "staff":
+    if user.role.lower() == "staff":
         staff = user.staff
         staff.save()
         if "password" in data:
             _change_password(user, data)
 
-    elif user.role == "admin":
+    elif user.role.lower() == "admin":
         admin = user.admin
         for field in admin_fields:
             if field in data:
@@ -29,7 +29,7 @@ def user_update_profile(user: User, data: dict):
         if "password" in data:
             _change_password(user, data)
 
-    elif user.role == "customer":
+    elif user.role.lower() == "customer":
         customer = user.customer
         for field in ["height", "weight", "foot_length"]:
             if field in data:
@@ -58,6 +58,7 @@ def staff_create(username, email, password, phone_number, employment_type, **ext
     first_name = extra_fields.pop('first_name', '') or ''
     last_name = extra_fields.pop('last_name', '') or ''
     avatar_url = extra_fields.pop('avatar_url', None)
+    is_active = extra_fields.pop('is_active', True)
     staff = Staff.objects.create(
         username=username,
         email=email,
@@ -66,8 +67,8 @@ def staff_create(username, email, password, phone_number, employment_type, **ext
         last_name=last_name,
         phone_number=phone_number,
         employment_type=employment_type,
-        role='staff',
-        is_active=True,
+        role='STAFF',
+        is_active=is_active,
         avatar_url=avatar_url,
         **extra_fields,
     )

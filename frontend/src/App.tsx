@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Routes, Route, useNavigate, Navigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { CheckCircle2, CreditCard } from 'lucide-react';
 import { User, Product, CartItem, Order, type HomepageData } from './types';
 import { fetchProducts, fetchCategories, fetchHomepageProducts, type Category } from './services/productService';
-import { clearSession, getStoredSession, logoutUser, saveSession } from './services/authService';
+import { clearSession, getAutoLogoutDelayMs, getStoredSession, logoutUser, saveSession } from './services/authService';
 import { addFavorite, listFavorites, removeFavorite } from './services/favoriteService';
 import { addToCart, fetchCart, removeCartItems, updateCartItem } from './services/cartService';
 import { confirmOrder as confirmOrderApi, createOrder, createShipment, handoverToCarrier, listOrders, rejectOrder as rejectOrderApi } from './services/orderService';
-import { simulatePaymentSuccess } from './services/paymentService';
+import { confirmBankTransfer, getPaymentQr } from './services/paymentService';
 import { recommendProducts } from './services/aiService';
 
 // Layouts
@@ -20,6 +21,8 @@ import ContactView from './components/views/ContactView';
 import LoginView from './components/views/LoginView';
 import RegisterView from './components/views/RegisterView';
 import CartView from './components/views/CartView';
+import FavoriteView from './components/views/FavoriteView';
+import CategoryProductListView from './components/views/CategoryProductListView';
 import CheckoutView from './components/views/CheckoutView';
 import OrderHistoryView from './components/views/OrderHistoryView';
 import OrderDetailsView from './components/views/OrderDetailsView';
@@ -27,6 +30,8 @@ import ProductDetailView from './components/views/ProductDetailView';
 import ReviewView from './components/views/ReviewView';
 import CustomerProfileView from './components/views/CustomerProfileView';
 import CustomerAddressesView from './components/views/CustomerAddressesView';
+import StaffPortalHomeView from './components/views/StaffPortalHomeView';
+import AdminPortalHomeView from './components/views/AdminPortalHomeView';
 import StaffOrderProcessView from './components/views/StaffOrderProcessView';
 import StaffOrderSortView from './components/views/StaffOrderSortView';
 import StaffLabelPrintView from './components/views/StaffLabelPrintView';
@@ -35,34 +40,100 @@ import AdminProductListView from './components/views/AdminProductListView';
 import AdminProductFormView from './components/views/AdminProductFormView';
 import AdminStaffListView from './components/views/AdminStaffListView';
 import AdminStaffFormView from './components/views/AdminStaffFormView';
+import AdminCustomerListView from './components/views/AdminCustomerListView';
+import AdminCustomerFormView from './components/views/AdminCustomerFormView';
+import AddToCartModal from './components/common/AddToCartModal';
 import { ToastProvider } from './components/common/ToastProvider';
+import { useToast } from './components/common/toastHook';
+import { getAuthExpiredEventName } from './services/authInterceptor';
+import { fetchStaffList, fetchCustomerList, createStaff, updateStaff, deleteStaff as deleteStaffApi, createCustomer, updateCustomer, deleteCustomer as deleteCustomerApi } from './services/userService';
+import { createAdminProduct, updateAdminProduct, deleteAdminProduct } from './services/adminProductService';
 
 export default function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
+  );
+}
+
+function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { showToast } = useToast();
+  const autoLogoutTimerRef = useRef<number | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(getStoredSession()?.user || null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [homepageData, setHomepageData] = useState<HomepageData | null>(null);
   const [homepageLoading, setHomepageLoading] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
-    // Favorite Handlers
-    const toggleFavorite = async (productId: string) => {
-      const existed = favoriteIds.includes(productId);
-      setFavoriteIds((prev) => (existed ? prev.filter((id) => id !== productId) : [...prev, productId]));
+
+  const allProducts = React.useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach(p => map.set(p.id, p));
+    if (homepageData) {
+      [...(homepageData.new_arrivals || []),
+      ...(homepageData.recommended || []),
+      ...(homepageData.best_sellers || []),
+      ...(homepageData.popular || [])].forEach(p => map.set(p.id, p));
+    }
+    return Array.from(map.values());
+  }, [products, homepageData]);
+
+  useEffect(() => {
+    const verifySession = async () => {
       try {
-        if (existed) {
-          await removeFavorite(productId);
-        } else {
-          await addFavorite(productId);
+        if (currentUser) {
+          const { validateSession } = await import('./services/authService');
+          const isValid = await validateSession();
+          if (!isValid) {
+            const { clearSession } = await import('./services/authService');
+            clearSession();
+            setCurrentUser(null);
+            setCart([]);
+          }
         }
       } catch {
-        setFavoriteIds((prev) => (existed ? [...prev, productId] : prev.filter((id) => id !== productId)));
+        // If validation completely fails, let individual requests handle 401s
+      } finally {
+        setIsCheckingSession(false);
       }
     };
+    verifySession();
+  }, [currentUser]);
+
+  // Favorite Handlers
+  const toggleFavorite = async (productId: string) => {
+    const existed = favoriteIds.includes(productId);
+    setFavoriteIds((prev) => (existed ? prev.filter((id) => id !== productId) : [...prev, productId]));
+    try {
+      if (existed) {
+        await removeFavorite(productId);
+        showToast({ tone: 'info', title: 'Đã bỏ yêu thích' });
+      } else {
+        await addFavorite(productId);
+        showToast({ tone: 'success', title: 'Đã thêm vào mục yêu thích' });
+      }
+    } catch {
+      setFavoriteIds((prev) => (existed ? [...prev, productId] : prev.filter((id) => id !== productId)));
+      showToast({ tone: 'error', title: 'Lỗi khi cập nhật yêu thích' });
+    }
+  };
   const [staffList, setStaffList] = useState<User[]>([]);
+  const [customerList, setCustomerList] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [staffPortalRefreshVersion, setStaffPortalRefreshVersion] = useState(0);
+  const [adminPortalRefreshVersion, setAdminPortalRefreshVersion] = useState(0);
+  
+  const [cartModal, setCartModal] = useState<{
+    isOpen: boolean;
+    product: Product | null;
+    quantity: number;
+    actionType: 'cart' | 'buy';
+  }>({ isOpen: false, product: null, quantity: 1, actionType: 'cart' });
 
   const mapOrderStatus = (status?: string): Order['status'] => {
     switch (status) {
@@ -99,6 +170,23 @@ export default function App() {
     if (normalized === 'BANK_TRANSFER') return 'bank_transfer';
     if (normalized === 'CREDIT_CARD') return 'credit_card';
     return 'e_wallet';
+  };
+
+  const clearAutoLogoutTimer = () => {
+    if (autoLogoutTimerRef.current !== null) {
+      window.clearTimeout(autoLogoutTimerRef.current);
+      autoLogoutTimerRef.current = null;
+    }
+  };
+
+  const scheduleAutoLogout = (accessToken?: string) => {
+    clearAutoLogoutTimer();
+    if (!accessToken) return;
+
+    const delayMs = getAutoLogoutDelayMs(accessToken, 30000);
+    autoLogoutTimerRef.current = window.setTimeout(() => {
+      void handleLogout();
+    }, delayMs);
   };
 
   const syncCartFromService = async () => {
@@ -145,7 +233,11 @@ export default function App() {
       const data = await listOrders();
       const mapped: Order[] = (Array.isArray(data) ? data : []).map((row: any) => ({
         id: String(row.id),
-        customerId: currentUser.id,
+        customerId: String(row.user_id || currentUser.id),
+        customerName:
+          String(row.customer_name || '').trim() ||
+          `KH-${String(row.user_id || currentUser.id).slice(0, 8)}`,
+        itemCount: Number(row.item_count || 0),
         items: [],
         totalAmount: Number(row.total_price || 0),
         shippingFee: Number(row.shipping_fee || 0),
@@ -153,8 +245,9 @@ export default function App() {
         shippingMethod: mapShippingMethod(row.shipping_method),
         paymentMethod: mapPaymentMethod(row.payment_method),
         status: mapOrderStatus(row.status),
-        paymentStatus: mapPaymentMethod(row.payment_method) === 'cod' ? 'unpaid' : 'paid',
+        paymentStatus: row.is_paid ? 'paid' : 'unpaid',
         createdAt: row.created_at || new Date().toISOString(),
+        carrier: row.carrier ? String(row.carrier) : undefined,
       }));
       setOrders(mapped);
     } catch {
@@ -184,10 +277,35 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      setStaffList([]);
+      setCustomerList([]);
+      return;
+    }
+
+    const loadManagementLists = async () => {
+      try {
+        const [staff, customers] = await Promise.all([fetchStaffList(), fetchCustomerList()]);
+        setStaffList(staff);
+        setCustomerList(customers);
+      } catch {
+        setStaffList([]);
+        setCustomerList([]);
+      }
+    };
+
+    loadManagementLists();
+  }, [currentUser?.role]);
+
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      return;
+    }
+
     // Parse query param from location.search directly for stable dependency
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') || 'sach-luu-tru';
-    
+
     // Validate tab against available categories (dynamic, no hardcoded values)
     const validSlugs = categories.map(c => c.slug);
     const categoryKey = validSlugs.includes(tab) ? tab : 'sach-luu-tru';
@@ -272,14 +390,18 @@ export default function App() {
     const normalizedSession = { ...session, user } as { user: User; access: string; refresh: string };
     saveSession(normalizedSession);
     setCurrentUser(user);
+    scheduleAutoLogout(normalizedSession.access);
     if (user.role === 'customer') {
       navigate('/');
+    } else if (user.role === 'admin') {
+      navigate('/portal/admin');
     } else {
-      navigate('/portal/orders');
+      navigate('/portal/staff');
     }
   };
 
   const handleLogout = async () => {
+    clearAutoLogoutTimer();
     await logoutUser().catch(() => undefined);
     clearSession();
     setCurrentUser(null);
@@ -287,8 +409,65 @@ export default function App() {
     navigate('/');
   };
 
+  useEffect(() => {
+    const onAuthExpired = () => {
+      if (getStoredSession()) {
+        void handleLogout();
+      }
+    };
+
+    const eventName = getAuthExpiredEventName();
+    window.addEventListener(eventName, onAuthExpired);
+    return () => window.removeEventListener(eventName, onAuthExpired);
+  }, [handleLogout]);
+
+  useEffect(() => {
+    const session = getStoredSession();
+    if (currentUser && session?.access) {
+      scheduleAutoLogout(session.access);
+    } else {
+      clearAutoLogoutTimer();
+    }
+
+    return clearAutoLogoutTimer;
+  }, [currentUser]);
+
   // Cart Handlers
-  const handleAddToCart = async (product: Product, quantity: number = 1) => {
+  const handleBuyNow = async (product: Product, quantity: number = 1, options?: any) => {
+    const category = String(product.category || '').toLowerCase();
+    const needsVariant = category.includes('thoi-trang') || category.includes('fashion') || category.includes('dien-tu') || category.includes('electronic');
+
+    if (needsVariant && !options) {
+      setCartModal({ isOpen: true, product, quantity, actionType: 'buy' });
+      return;
+    }
+
+    if (!currentUser) {
+      setCart(prev => {
+        const existing = prev.find(item => item.id === product.id);
+        if (existing) {
+          return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + quantity, selected: true } : { ...item, selected: false });
+        }
+        return [...prev.map(item => ({ ...item, selected: false })), { ...product, quantity, selected: true }];
+      });
+      navigate('/checkout');
+      return;
+    }
+    await addToCart(product.id, product.price, quantity);
+    await syncCartFromService();
+    selectSingleCartItem(product.id);
+    navigate('/checkout');
+  };
+
+  const handleAddToCart = async (product: Product, quantity: number = 1, options?: any) => {
+    const category = String(product.category || '').toLowerCase();
+    const needsVariant = category.includes('thoi-trang') || category.includes('fashion') || category.includes('dien-tu') || category.includes('electronic');
+
+    if (needsVariant && !options) {
+      setCartModal({ isOpen: true, product, quantity, actionType: 'cart' });
+      return;
+    }
+
     if (!currentUser) {
       setCart(prev => {
         const existing = prev.find(item => item.id === product.id);
@@ -340,6 +519,18 @@ export default function App() {
     setCart((prev) => prev.map((item) => ({ ...item, selected: item.id === productId })));
   };
 
+  const removePurchasedItems = async (productIds: string[]) => {
+    const ids = Array.from(new Set(productIds.filter((id) => Boolean(id))));
+    if (ids.length === 0) {
+      return;
+    }
+    try {
+      await removeCartItems(ids);
+    } finally {
+      await syncCartFromService();
+    }
+  };
+
   // Order Handlers
   const completePayment = async (details: any) => {
     if (!currentUser) {
@@ -350,40 +541,51 @@ export default function App() {
     }
 
     const paymentCode = String(details.paymentMethod || '').toLowerCase();
-    const mappedPaymentMethod: 'COD' | 'BANK_TRANSFER' | 'E_WALLET' | 'CREDIT_CARD' =
-      paymentCode === 'cod'
-        ? 'COD'
-        : paymentCode === 'bank'
-          ? 'BANK_TRANSFER'
-          : paymentCode === 'credit_card'
-            ? 'CREDIT_CARD'
-            : 'E_WALLET';
+    const mappedPaymentMethod: 'COD' | 'BANK_TRANSFER' =
+      paymentCode === 'cod' ? 'COD' : 'BANK_TRANSFER';
 
     const selectedCartItems = cart.filter((i) => i.selected);
     const items = selectedCartItems
       .map((item) => ({ product_id: item.id, quantity: item.quantity, price: item.price }));
+    const orderedProductIds = selectedCartItems.map((item) => item.id);
     const orderResp = await createOrder({
       address_id: details.addressId || undefined,
-      address_text: details.addressId ? undefined : String(details.address || '').trim(),
+      address_text: String(details.addressText || details.address || '').trim() || undefined,
+      recipient_name: String(currentUser.name || currentUser.username || '').trim() || undefined,
+      recipient_phone: String(currentUser.phoneNumber || '').trim() || undefined,
       payment_method: mappedPaymentMethod,
-      shipping_method: details.shippingMethod === 'express' ? 'EXPRESS' : 'STANDARD',
+      shipping_method: 'STANDARD',
+      shipping_fee: Number(details.shippingFee || 0),
+      carrier_name: String(details.carrierName || '').trim(),
       items,
     });
+
+    if (mappedPaymentMethod === 'COD') {
+      await removePurchasedItems(orderedProductIds);
+      await syncOrdersFromService();
+      showToast({
+        tone: 'success',
+        title: 'Đặt hàng thành công',
+        description: 'Đơn hàng đang chờ xác nhận và sẽ thanh toán khi nhận hàng.',
+      });
+      navigate('/orders');
+      return;
+    }
+
     if (orderResp?.payment?.payment_url) {
       const q = new URLSearchParams({
         order_id: String(orderResp.order_id),
         payment_id: String(orderResp.payment.payment_id || ''),
         reference_number: String(orderResp.payment.reference_number || ''),
         payment_url: String(orderResp.payment.payment_url || ''),
+        item_ids: orderedProductIds.join(','),
       });
       navigate(`/payment?${q.toString()}`);
       return;
     }
-    if (selectedCartItems.length > 0) {
-      await removeCartItems(selectedCartItems.map((item) => item.id));
-    }
+
+    await removePurchasedItems(orderedProductIds);
     await syncOrdersFromService();
-    await syncCartFromService();
     navigate('/orders');
   };
 
@@ -400,7 +602,7 @@ export default function App() {
   const consolidateOrders = (ids: string[]) => {
     alert(`Các đơn hàng ${ids.join(', ')} đã được gộp để vận chuyển.`);
     setOrders(prev => prev.map(o => ids.includes(o.id) ? { ...o, status: 'awaiting_pickup' } : o));
-    navigate('/portal/logistics');
+    navigate('/portal/staff/logistics');
   };
 
   const updateOrderLogistics = (id: string, updates: Partial<Order>) => {
@@ -410,7 +612,7 @@ export default function App() {
   const createShipmentForOrder = async (orderId: string) => {
     await createShipment(orderId, { weight: 1, length: 20, width: 20, height: 10 });
     await syncOrdersFromService();
-    navigate(`/portal/label/${orderId}`);
+    navigate(`/portal/staff/label/${orderId}`);
   };
 
   const handoverOrder = async (orderId: string, carrierName: string) => {
@@ -418,71 +620,170 @@ export default function App() {
     await syncOrdersFromService();
   };
 
-  // Admin Handlers
-  const saveProduct = (product: Partial<Product>) => {
+  // Management Handlers
+  const saveProduct = async (product: Partial<Product>) => {
+    const resolvedCategoryId =
+      product.categoryId || categories.find((category) => category.slug === product.category)?.id || product.category;
+    const payload = { ...product, categoryId: resolvedCategoryId };
+
     if (product.id) {
-      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...product } as Product : p));
+      await updateAdminProduct(product.id, payload);
     } else {
-      const newProduct = { ...product, id: `p${Date.now()}` } as Product;
-      setProducts([newProduct, ...products]);
+      await createAdminProduct(payload);
     }
-    navigate('/portal/admin/products');
+    setProducts(await fetchProducts().catch(() => products));
+    setStaffPortalRefreshVersion((value) => value + 1);
+    navigate('/portal/staff/products');
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+  const deleteProduct = async (id: string) => {
+    await deleteAdminProduct(id);
+    setProducts(await fetchProducts().catch(() => products));
+    setStaffPortalRefreshVersion((value) => value + 1);
   };
 
-  const saveStaff = (staff: Partial<User>) => {
+  const saveStaff = async (staff: Partial<User> & { password?: string }) => {
+    const payload = {
+      username: String(staff.username || ''),
+      email: String(staff.email || ''),
+      phone_number: String(staff.phoneNumber || ''),
+      first_name: staff.firstName || undefined,
+      last_name: staff.lastName || undefined,
+      employment_type: staff.employmentType || 'Full-time',
+      is_active: staff.isActive ?? true,
+      ...(staff.password ? { password: String(staff.password) } : {}),
+    };
+
     if (staff.id) {
-      setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, ...staff } as User : s));
+      await updateStaff(staff.id, payload);
     } else {
-      const newStaff = { ...staff, id: `u${Date.now()}` } as User;
-      setStaffList([newStaff, ...staffList]);
+      await createStaff(payload as any);
     }
+
+    setStaffList(await fetchStaffList().catch(() => staffList));
+    setAdminPortalRefreshVersion((value) => value + 1);
     navigate('/portal/admin/staff');
   };
 
-  const deleteStaff = (id: string) => {
-    setStaffList(prev => prev.filter(s => s.id !== id));
+  const deleteStaff = async (id: string) => {
+    await deleteStaffApi(id);
+    setStaffList(await fetchStaffList().catch(() => staffList));
+    setAdminPortalRefreshVersion((value) => value + 1);
+  };
+
+  const saveCustomer = async (customer: Partial<User> & { password?: string }) => {
+    const payload = {
+      username: String(customer.username || ''),
+      email: String(customer.email || ''),
+      phone_number: String(customer.phoneNumber || ''),
+      first_name: customer.firstName || undefined,
+      last_name: customer.lastName || undefined,
+      height: customer.height ?? null,
+      weight: customer.weight ?? null,
+      foot_length: customer.footLength ?? null,
+      is_active: customer.isActive ?? true,
+      ...(customer.password ? { password: String(customer.password) } : {}),
+    };
+
+    if (customer.id) {
+      await updateCustomer(customer.id, payload);
+    } else {
+      await createCustomer(payload as any);
+    }
+
+    setCustomerList(await fetchCustomerList().catch(() => customerList));
+    setAdminPortalRefreshVersion((value) => value + 1);
+    navigate('/portal/admin/customers');
+  };
+
+  const deleteCustomer = async (id: string) => {
+    await deleteCustomerApi(id);
+    setCustomerList(await fetchCustomerList().catch(() => customerList));
+    setAdminPortalRefreshVersion((value) => value + 1);
   };
 
   return (
-    <ToastProvider>
+    <>
+      {/* Loading Overlay */}
+      {isCheckingSession && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-gray-600 font-medium tracking-wide">Đang kiểm tra phiên đăng nhập...</p>
+        </div>
+      )}
+
+      <AddToCartModal
+        isOpen={cartModal.isOpen}
+        product={cartModal.product}
+        quantity={cartModal.quantity}
+        actionType={cartModal.actionType}
+        onClose={() => setCartModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={(product, quantity, options) => {
+          setCartModal(prev => ({ ...prev, isOpen: false }));
+          if (cartModal.actionType === 'cart') {
+            handleAddToCart(product, quantity, options);
+          } else {
+            handleBuyNow(product, quantity, options);
+          }
+        }}
+      />
+
     <Routes>
       {/* Customer Routes */}
       <Route path="/" element={
         <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
-          <HomeView 
-            products={products} 
+          <HomeView
+            products={products}
             homepageData={homepageData}
             homepageLoading={homepageLoading}
+            categories={categories}
             onProductClick={(p) => navigate(`/products/${p.id}`)}
             onAddToCart={(p) => handleAddToCart(p)}
-            onBuyNow={async (p) => {
-              await handleAddToCart(p);
-              setCart(prev => prev.map(item => ({ ...item, selected: item.id === p.id })));
-              navigate('/checkout');
-            }}
+            onBuyNow={(p) => handleBuyNow(p)}
             favoriteIds={favoriteIds}
             toggleFavorite={toggleFavorite}
           />
         </CustomerLayout>
       } />
+      <Route path="/category/:categoryId" element={
+        <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
+          <CategoryProductListView
+            products={allProducts}
+            favoriteIds={favoriteIds}
+            toggleFavorite={toggleFavorite}
+            onProductClick={(p) => navigate(`/products/${p.id}`)}
+            onAddToCart={(p) => handleAddToCart(p)}
+            onBuyNow={(p) => handleBuyNow(p)}
+          />
+        </CustomerLayout>
+      } />
+      <Route path="/category/:categoryId/:subCategoryId" element={
+        <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
+          <CategoryProductListView
+            products={allProducts}
+            favoriteIds={favoriteIds}
+            toggleFavorite={toggleFavorite}
+            onProductClick={(p) => navigate(`/products/${p.id}`)}
+            onAddToCart={(p) => handleAddToCart(p)}
+            onBuyNow={(p) => handleBuyNow(p)}
+          />
+        </CustomerLayout>
+      } />
       <Route path="/products/:id" element={
-        <ProductDetailViewWrapper 
-          products={products} 
-          handleAddToCart={handleAddToCart} 
+        <ProductDetailViewWrapper
+          products={allProducts}
+          handleAddToCart={handleAddToCart}
+          handleBuyNow={handleBuyNow}
           selectSingleCartItem={selectSingleCartItem}
-          currentUser={currentUser} 
-          cart={cart} 
-          handleLogout={handleLogout} 
+          currentUser={currentUser}
+          cart={cart}
+          handleLogout={handleLogout}
         />
       } />
       <Route path="/cart" element={
         <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
-          <CartView 
-            items={cart} 
+          <CartView
+            items={cart}
             onUpdateQuantity={updateQuantity}
             onRemove={removeItem}
             onToggleSelect={toggleSelectItem}
@@ -492,53 +793,70 @@ export default function App() {
           />
         </CustomerLayout>
       } />
+      <Route path="/favorites" element={
+        <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
+          <FavoriteView
+            products={allProducts}
+            favoriteIds={favoriteIds}
+            toggleFavorite={toggleFavorite}
+            onProductClick={(p) => navigate(`/products/${p.id}`)}
+            onAddToCart={(p) => handleAddToCart(p)}
+            onBuyNow={(p) => handleBuyNow(p)}
+          />
+        </CustomerLayout>
+      } />
       <Route path="/checkout" element={
         <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
-          <CheckoutView 
-            selectedItems={cart.filter(i => i.selected)} 
-            onCompletePayment={completePayment} 
+          <CheckoutView
+            selectedItems={cart.filter(i => i.selected)}
+            onCompletePayment={completePayment}
             currentUser={currentUser}
-            onNavigate={(v: any) => navigate(v.type === 'CART' ? '/cart' : '/')} 
+            onNavigate={(v: any) => navigate(v.type === 'CART' ? '/cart' : '/')}
           />
         </CustomerLayout>
       } />
       <Route path="/payment" element={
         <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
           <PaymentPage onDone={async () => {
-            const selectedIds = cart.filter((item) => item.selected).map((item) => item.id);
-            if (selectedIds.length > 0) {
-              await removeCartItems(selectedIds).catch(() => undefined);
-            }
+            const selectedIds = (new URLSearchParams(location.search).get('item_ids') || '')
+              .split(',')
+              .map((id) => id.trim())
+              .filter(Boolean);
+            await removePurchasedItems(selectedIds).catch(() => undefined);
             await syncOrdersFromService();
-            await syncCartFromService();
-            navigate('/orders');
           }} />
         </CustomerLayout>
       } />
       <Route path="/orders" element={
         <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
-          <OrderHistoryView 
-            orders={orders.filter(o => o.customerId === currentUser?.id)} 
+          <OrderHistoryView
+            orders={orders.filter(o => o.customerId === currentUser?.id)}
             onViewDetails={(o) => navigate(`/orders/${o.id}`)}
-            onNavigate={(v: any) => navigate(v.type === 'HOME' ? '/' : '/orders')}
+            onNavigate={(v: any) => {
+              if (v.type === 'HOME') {
+                navigate('/');
+              } else {
+                navigate('/orders');
+              }
+            }}
           />
         </CustomerLayout>
       } />
       <Route path="/orders/:id" element={
-        <OrderDetailsViewWrapper 
-          orders={orders} 
-          products={products} 
-          currentUser={currentUser} 
-          cart={cart} 
-          handleLogout={handleLogout} 
+        <OrderDetailsViewWrapper
+          orders={orders}
+          products={products}
+          currentUser={currentUser}
+          cart={cart}
+          handleLogout={handleLogout}
         />
       } />
       <Route path="/review/:productId" element={
-        <ReviewViewWrapper 
-          products={products} 
-          currentUser={currentUser} 
-          cart={cart} 
-          handleLogout={handleLogout} 
+        <ReviewViewWrapper
+          products={products}
+          currentUser={currentUser}
+          cart={cart}
+          handleLogout={handleLogout}
         />
       } />
       <Route path="/news" element={
@@ -565,84 +883,242 @@ export default function App() {
       <Route path="/register" element={<RegisterView onRegister={handleLogin} onNavigate={() => navigate('/login')} />} />
 
       {/* Internal Portal Routes */}
+      <Route path="/portal" element={<PortalEntryRedirect currentUser={currentUser} />} />
       <Route path="/portal/login" element={<Navigate to="/portal/staff/login" replace />} />
       <Route path="/portal/staff/login" element={<LoginView onLogin={handleLogin} onNavigate={() => navigate('/login')} roleType="staff" />} />
       <Route path="/portal/admin/login" element={<LoginView onLogin={handleLogin} onNavigate={() => navigate('/login')} roleType="admin" />} />
-      
-      <Route path="/portal/*" element={
-        currentUser && (currentUser.role === 'staff' || currentUser.role === 'admin') ? (
-          <InternalLayout currentUser={currentUser} onLogout={handleLogout}>
-            <Routes>
-              <Route index element={<Navigate to="orders" replace />} />
-              <Route path="orders" element={
-                <StaffOrderProcessView 
-                  orders={orders.filter(o => o.status === 'awaiting_confirmation' || o.status === 'canceled')} 
-                  onConfirm={confirmOrder}
-                  onConsolidate={consolidateOrders}
-                />
-              } />
-              <Route path="logistics" element={
-                <StaffOrderSortView 
-                  orders={orders.filter(o => o.status === 'awaiting_pickup' || o.status === 'awaiting_delivery')} 
-                  onUpdateOrder={updateOrderLogistics}
-                  onNavigateToLabel={(o) => createShipmentForOrder(o.id)}
-                  onNavigateToHandover={() => navigate('/portal/handover')}
-                />
-              } />
-              <Route path="admin/products" element={
-                <AdminProductListView 
-                  products={products} 
-                  onAdd={() => navigate('/portal/admin/products/new')}
-                  onEdit={(p) => navigate(`/portal/admin/products/${p.id}`)}
-                  onDelete={deleteProduct}
-                />
-              } />
-              <Route path="admin/products/new" element={<AdminProductFormView product={undefined} onSave={saveProduct} onCancel={() => navigate('/portal/admin/products')} />} />
-              <Route path="admin/products/:id" element={<AdminProductFormWrapper products={products} onSave={saveProduct} onCancel={() => navigate('/portal/admin/products')} />} />
-              <Route path="admin/staff" element={
-                <AdminStaffListView 
-                  staffList={staffList} 
-                  onAdd={() => navigate('/portal/admin/staff/new')}
-                  onEdit={(s) => navigate(`/portal/admin/staff/${s.id}`)}
-                  onDelete={deleteStaff}
-                />
-              } />
-              <Route path="admin/staff/new" element={<AdminStaffFormView staff={undefined} onSave={saveStaff} onCancel={() => navigate('/portal/admin/staff')} />} />
-              <Route path="admin/staff/:id" element={<AdminStaffFormWrapper staffList={staffList} onSave={saveStaff} onCancel={() => navigate('/portal/admin/staff')} />} />
-            </Routes>
-          </InternalLayout>
+
+      <Route path="/portal/staff/*" element={
+        currentUser?.role === 'staff' ? (
+          <StaffPortalShell
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            refreshVersion={staffPortalRefreshVersion}
+            orders={orders}
+            products={products}
+            navigate={navigate}
+            confirmOrder={confirmOrder}
+            consolidateOrders={consolidateOrders}
+            updateOrderLogistics={updateOrderLogistics}
+            createShipmentForOrder={createShipmentForOrder}
+            handoverOrder={handoverOrder}
+            saveProduct={saveProduct}
+            deleteProduct={deleteProduct}
+          />
         ) : (
           <Navigate to="/portal/staff/login" replace />
         )
       } />
 
+      <Route path="/portal/admin/*" element={
+        currentUser?.role === 'admin' ? (
+          <AdminPortalShell
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            refreshVersion={adminPortalRefreshVersion}
+            staffList={staffList}
+            customerList={customerList}
+            navigate={navigate}
+            saveStaff={saveStaff}
+            deleteStaff={deleteStaff}
+            saveCustomer={saveCustomer}
+            deleteCustomer={deleteCustomer}
+          />
+        ) : (
+          <Navigate to="/portal/admin/login" replace />
+        )
+      } />
+
+      <Route path="/portal/orders" element={<Navigate to="/portal/staff/orders" replace />} />
+      <Route path="/portal/logistics" element={<Navigate to="/portal/staff/logistics" replace />} />
+      <Route path="/portal/handover" element={<Navigate to="/portal/staff/handover" replace />} />
+      <Route path="/portal/admin/products" element={<Navigate to="/portal/staff/products" replace />} />
+      <Route path="/portal/admin/products/new" element={<Navigate to="/portal/staff/products/new" replace />} />
+      <Route path="/portal/admin/products/:id" element={<PortalProductEditRedirect />} />
+
       {/* Auxiliary Internal Routes (Label, etc) */}
       <Route path="/portal/label/:id" element={<StaffLabelPrintWrapper orders={orders} currentUser={currentUser} onLogout={handleLogout} />} />
+      <Route path="/portal/staff/label/:id" element={<StaffLabelPrintWrapper orders={orders} currentUser={currentUser} onLogout={handleLogout} />} />
       <Route path="/portal/handover" element={<StaffHandoverWrapper orders={orders} currentUser={currentUser} onLogout={handleLogout} onHandover={handoverOrder} />} />
+      <Route path="/portal/staff/handover" element={<StaffHandoverWrapper orders={orders} currentUser={currentUser} onLogout={handleLogout} onHandover={handoverOrder} />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-    </ToastProvider>
+    </>
+  );
+}
+
+function PortalEntryRedirect({ currentUser }: { currentUser: User | null }) {
+  if (currentUser?.role === 'admin') {
+    return <Navigate to="/portal/admin" replace />;
+  }
+  if (currentUser?.role === 'staff') {
+    return <Navigate to="/portal/staff" replace />;
+  }
+  return <Navigate to="/portal/staff/login" replace />;
+}
+
+function PortalProductEditRedirect() {
+  const { id } = useParams();
+  if (!id) {
+    return <Navigate to="/portal/staff/products" replace />;
+  }
+  return <Navigate to={`/portal/staff/products/${id}`} replace />;
+}
+
+function StaffPortalShell({
+  currentUser,
+  onLogout,
+  refreshVersion,
+  orders,
+  products,
+  navigate,
+  confirmOrder,
+  consolidateOrders,
+  updateOrderLogistics,
+  createShipmentForOrder,
+  handoverOrder,
+  saveProduct,
+  deleteProduct,
+}: any) {
+  return (
+    <InternalLayout currentUser={currentUser} onLogout={onLogout}>
+      <Routes>
+        <Route
+          index
+          element={
+            <StaffPortalHomeView
+              pendingOrdersCount={orders.filter((order: Order) => order.status === 'awaiting_confirmation').length}
+              pickupOrdersCount={orders.filter((order: Order) => order.status === 'awaiting_pickup' || order.status === 'awaiting_delivery').length}
+              productCount={products.length}
+              handoverCount={orders.filter((order: Order) => order.carrier && order.status !== 'delivered').length}
+              refreshVersion={refreshVersion}
+              onGoToOrders={() => navigate('/portal/staff/orders')}
+              onGoToLogistics={() => navigate('/portal/staff/logistics')}
+              onGoToProducts={() => navigate('/portal/staff/products')}
+              onGoToHandover={() => navigate('/portal/staff/handover')}
+            />
+          }
+        />
+        <Route
+          path="orders"
+          element={
+            <StaffOrderProcessView
+              orders={orders.filter((o: Order) => o.status === 'awaiting_confirmation' || o.status === 'canceled')}
+              onConfirm={confirmOrder}
+              onConsolidate={consolidateOrders}
+              onViewDetails={(order) => navigate(`/portal/staff/orders/${order.id}`)}
+            />
+          }
+        />
+        <Route
+          path="orders/:id"
+          element={<StaffOrderDetailsWrapper currentUser={currentUser} onLogout={onLogout} />}
+        />
+        <Route
+          path="logistics"
+          element={
+            <StaffOrderSortView
+              orders={orders.filter((o: Order) => o.status === 'awaiting_pickup' || o.status === 'awaiting_delivery')}
+              onUpdateOrder={updateOrderLogistics}
+              onNavigateToLabel={(o) => createShipmentForOrder(o.id)}
+              onNavigateToHandover={() => navigate('/portal/staff/handover')}
+            />
+          }
+        />
+        <Route
+          path="products"
+          element={
+            <AdminProductListView
+              products={products}
+              onAdd={() => navigate('/portal/staff/products/new')}
+              onEdit={(p) => navigate(`/portal/staff/products/${p.id}`)}
+              onDelete={deleteProduct}
+            />
+          }
+        />
+        <Route path="products/new" element={<AdminProductFormView product={undefined} onSave={saveProduct} onCancel={() => navigate('/portal/staff/products')} />} />
+        <Route path="products/:id" element={<AdminProductFormWrapper products={products} onSave={saveProduct} onCancel={() => navigate('/portal/staff/products')} />} />
+        <Route path="handover" element={<StaffHandoverWrapper orders={orders} currentUser={currentUser} onLogout={onLogout} onHandover={handoverOrder} />} />
+        <Route path="label/:id" element={<StaffLabelPrintWrapper orders={orders} currentUser={currentUser} onLogout={onLogout} />} />
+        <Route path="*" element={<Navigate to="" replace />} />
+      </Routes>
+    </InternalLayout>
+  );
+}
+
+function AdminPortalShell({
+  currentUser,
+  onLogout,
+  refreshVersion,
+  staffList,
+  customerList,
+  navigate,
+  saveStaff,
+  deleteStaff,
+  saveCustomer,
+  deleteCustomer,
+}: any) {
+  return (
+    <InternalLayout currentUser={currentUser} onLogout={onLogout}>
+      <Routes>
+        <Route
+          index
+          element={
+            <AdminPortalHomeView
+              staffCount={staffList.filter((staff: User) => staff.role === 'staff').length}
+              customerCount={customerList.filter((customer: User) => customer.role === 'customer').length}
+              refreshVersion={refreshVersion}
+              onGoToStaff={() => navigate('/portal/admin/staff')}
+              onGoToCustomers={() => navigate('/portal/admin/customers')}
+            />
+          }
+        />
+        <Route
+          path="staff"
+          element={
+            <AdminStaffListView
+              staffList={staffList}
+              onAdd={() => navigate('/portal/admin/staff/new')}
+              onEdit={(s) => navigate(`/portal/admin/staff/${s.id}`)}
+              onDelete={deleteStaff}
+            />
+          }
+        />
+        <Route path="staff/new" element={<AdminStaffFormView staff={undefined} onSave={saveStaff} onCancel={() => navigate('/portal/admin/staff')} />} />
+        <Route path="staff/:id" element={<AdminStaffFormWrapper staffList={staffList} onSave={saveStaff} onCancel={() => navigate('/portal/admin/staff')} />} />
+        <Route
+          path="customers"
+          element={
+            <AdminCustomerListView
+              customerList={customerList}
+              onAdd={() => navigate('/portal/admin/customers/new')}
+              onEdit={(customer) => navigate(`/portal/admin/customers/${customer.id}`)}
+              onDelete={deleteCustomer}
+            />
+          }
+        />
+        <Route path="customers/new" element={<AdminCustomerFormView customer={undefined} onSave={saveCustomer} onCancel={() => navigate('/portal/admin/customers')} />} />
+        <Route path="customers/:id" element={<AdminCustomerFormWrapper customerList={customerList} onSave={saveCustomer} onCancel={() => navigate('/portal/admin/customers')} />} />
+        <Route path="*" element={<Navigate to="" replace />} />
+      </Routes>
+    </InternalLayout>
   );
 }
 
 // Wrappers to handle params logic within App.tsx context
-function ProductDetailViewWrapper({ products, handleAddToCart, selectSingleCartItem, currentUser, cart, handleLogout }: any) {
+function ProductDetailViewWrapper({ products, handleAddToCart, handleBuyNow, selectSingleCartItem, currentUser, cart, handleLogout }: any) {
   const { id } = useParams();
   const navigate = useNavigate();
   const product = products.find((p: any) => p.id === id);
   if (!product) return <Navigate to="/" replace />;
   return (
     <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout}>
-      <ProductDetailView 
-        product={product} 
+      <ProductDetailView
+        product={product}
         onBack={() => navigate('/')}
         onAddToCart={handleAddToCart}
-        onBuyNow={async (p, q) => {
-          await handleAddToCart(p, q);
-          selectSingleCartItem(p.id);
-          navigate('/checkout');
-        }}
+        onBuyNow={handleBuyNow}
         relatedProducts={products.filter((p: any) => p.category === product.category && p.id !== product.id)}
       />
     </CustomerLayout>
@@ -652,14 +1128,13 @@ function ProductDetailViewWrapper({ products, handleAddToCart, selectSingleCartI
 function OrderDetailsViewWrapper({ orders, products, currentUser, cart, handleLogout }: any) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const order = orders.find((o: any) => o.id === id);
-  if (!order) return <Navigate to="/orders" replace />;
+  if (!id) return <Navigate to="/orders" replace />;
   return (
     <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout}>
-      <OrderDetailsView 
-        order={order} 
-        onBack={() => navigate('/orders')} 
-        onReview={(pid) => navigate(`/review/${pid}`)} 
+      <OrderDetailsView
+        orderId={id}
+        onBack={() => navigate('/orders')}
+        onReview={(pid) => navigate(`/review/${pid}`)}
       />
     </CustomerLayout>
   );
@@ -689,14 +1164,20 @@ function AdminStaffFormWrapper({ staffList, onSave, onCancel }: any) {
   return <AdminStaffFormView staff={staff} onSave={onSave} onCancel={onCancel} />;
 }
 
+function AdminCustomerFormWrapper({ customerList, onSave, onCancel }: any) {
+  const { id } = useParams();
+  const customer = customerList.find((item: any) => item.id === id);
+  return <AdminCustomerFormView customer={customer} onSave={onSave} onCancel={onCancel} />;
+}
+
 function StaffLabelPrintWrapper({ orders, currentUser, onLogout }: any) {
   const { id } = useParams();
   const navigate = useNavigate();
   const order = orders.find((o: any) => o.id === id);
-  if (!order) return <Navigate to="/portal/logistics" replace />;
+  if (!order) return <Navigate to="/portal/staff/logistics" replace />;
   return (
     <InternalLayout currentUser={currentUser} onLogout={onLogout}>
-      <StaffLabelPrintView order={order} onBack={() => navigate('/portal/logistics')} />
+      <StaffLabelPrintView order={order} onBack={() => navigate('/portal/staff/logistics')} />
     </InternalLayout>
   );
 }
@@ -705,7 +1186,22 @@ function StaffHandoverWrapper({ orders, currentUser, onLogout, onHandover }: any
   const navigate = useNavigate();
   return (
     <InternalLayout currentUser={currentUser} onLogout={onLogout}>
-      <StaffHandoverView orders={orders} onBack={() => navigate('/portal/logistics')} onHandover={onHandover} />
+      <StaffHandoverView orders={orders} onBack={() => navigate('/portal/staff/logistics')} onHandover={onHandover} />
+    </InternalLayout>
+  );
+}
+
+function StaffOrderDetailsWrapper({ currentUser, onLogout }: any) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  if (!id) return <Navigate to="/portal/staff/orders" replace />;
+  return (
+    <InternalLayout currentUser={currentUser} onLogout={onLogout}>
+      <OrderDetailsView
+        orderId={id}
+        onBack={() => navigate('/portal/staff/orders')}
+        onReview={(pid) => navigate(`/review/${pid}`)}
+      />
     </InternalLayout>
   );
 }
@@ -716,44 +1212,133 @@ function PaymentPage({ onDone }: { onDone: () => Promise<void> }) {
   const paymentId = params.get('payment_id') || '';
   const referenceNumber = params.get('reference_number') || '';
   const paymentUrl = params.get('payment_url') || '';
+  const orderId = params.get('order_id') || '';
+  const { showToast } = useToast();
   const [submitting, setSubmitting] = useState(false);
-  const qrImage = paymentUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(paymentUrl)}`
-    : '';
+  const [success, setSuccess] = useState(false);
+  const [loadingQr, setLoadingQr] = useState(false);
+  const [qrImage, setQrImage] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
-  const handleSimulate = async () => {
+  useEffect(() => {
+    const loadQr = async () => {
+      setLoadingQr(true);
+      try {
+        const data = await getPaymentQr({ payment_id: paymentId || undefined, reference_number: referenceNumber || undefined });
+        const resolvedPaymentUrl = data.paymentUrl || paymentUrl;
+        setQrImage(
+          data.qrImageUrl ||
+          (resolvedPaymentUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(resolvedPaymentUrl)}` : '')
+        );
+        setExpiresAt(data.expiresAt || '');
+      } catch {
+        setQrImage(paymentUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(paymentUrl)}` : '');
+        setExpiresAt('');
+      } finally {
+        setLoadingQr(false);
+      }
+    };
+    void loadQr();
+  }, [paymentId, referenceNumber, paymentUrl]);
+
+  useEffect(() => {
+    if (!expiresAt) {
+      setRemainingSeconds(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const end = new Date(expiresAt).getTime();
+      const remaining = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      setRemainingSeconds(remaining);
+    };
+
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [expiresAt]);
+
+  const handleTransfer = async () => {
     setSubmitting(true);
     try {
-      await simulatePaymentSuccess({ payment_id: paymentId || undefined, reference_number: referenceNumber || undefined });
+      await confirmBankTransfer({ payment_id: paymentId || undefined, reference_number: referenceNumber || undefined });
+      showToast({
+        tone: 'success',
+        title: 'Chuyển khoản thành công',
+        description: 'Đơn hàng đã được cập nhật và đang chờ xác nhận.',
+      });
       await onDone();
+      setSuccess(true);
     } finally {
       setSubmitting(false);
     }
   };
 
+  useEffect(() => {
+    if (!success || !orderId) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      navigate(`/orders/${orderId}`, { replace: true });
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [success, orderId, navigate]);
+
+  if (success) {
+    return (
+      <div className="max-w-lg mx-auto bg-white rounded-2xl border p-8 mt-8 shadow-lg text-center">
+        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-100 text-green-600 mb-5">
+          <CheckCircle2 size={32} />
+        </div>
+        <h1 className="text-2xl font-black mb-3">Thanh toán thành công</h1>
+        <p className="text-sm text-gray-500">Đang chuyển đến chi tiết đơn hàng...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-xl mx-auto bg-white rounded-2xl border p-6 mt-8">
-      <h1 className="text-xl font-bold mb-3">Thanh toán đơn hàng</h1>
-      <p className="text-sm text-gray-500 mb-4">Quét QR/đi tới cổng thanh toán, sau đó bấm giả lập đã chuyển khoản thành công.</p>
-      {qrImage ? (
-        <div className="mb-4 flex justify-center">
-          <img src={qrImage} alt="QR thanh toan" className="h-56 w-56 rounded-xl border p-2 bg-white" />
+    <div className="max-w-lg mx-auto bg-white rounded-2xl border p-6 mt-8 shadow-lg">
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-primary-light text-primary mb-4">
+          <CreditCard size={24} />
+        </div>
+        <h1 className="text-2xl font-black mb-2">Xác nhận thanh toán</h1>
+        <p className="text-sm text-gray-500">Quét mã QR bên dưới hoặc bấm nút xác nhận để hoàn tất thanh toán.</p>
+      </div>
+      {loadingQr ? (
+        <div className="mb-6 rounded-xl border border-dashed p-8 text-center text-sm text-gray-500">Đang tạo mã QR...</div>
+      ) : qrImage ? (
+        <div className="mb-6 flex justify-center">
+          <div className="rounded-2xl border bg-white p-3 shadow-sm">
+            <img src={qrImage} alt="QR thanh toan" className="h-56 w-56 rounded-xl" />
+          </div>
         </div>
       ) : null}
-      <div className="bg-gray-100 rounded-xl p-4 text-xs break-all mb-4">{paymentUrl || 'Khong co payment URL'}</div>
-      <div className="flex gap-3">
-        <button onClick={() => window.open(paymentUrl, '_blank')} className="px-4 py-2 rounded-lg border text-sm font-semibold">
-          Mo cong thanh toan
-        </button>
+
+      <div className="mb-6 rounded-xl bg-gray-50 border border-gray-100 p-4 text-center">
+        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Thời gian còn lại</div>
+        <div className={`text-2xl font-black ${remainingSeconds !== null && remainingSeconds <= 30 ? 'text-red-600' : 'text-primary'}`}>
+          {remainingSeconds === null
+            ? '—'
+            : remainingSeconds > 0
+              ? `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')}`
+              : 'Hết hạn'}
+        </div>
+        {expiresAt ? (
+          <div className="mt-2 text-xs text-gray-500">Hết hạn lúc {new Date(expiresAt).toLocaleString('vi-VN')}</div>
+        ) : null}
+      </div>
+
+      <div className="flex justify-center">
         <button
-          onClick={handleSimulate}
-          disabled={submitting}
-          className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60"
+          onClick={handleTransfer}
+          disabled={submitting || (remainingSeconds !== null && remainingSeconds <= 0)}
+          className="px-6 py-3 rounded-xl bg-primary text-white text-sm font-semibold disabled:opacity-60 min-w-56"
         >
-          {submitting ? 'Dang xu ly...' : 'Gia lap da chuyen khoan thanh cong'}
-        </button>
-        <button onClick={() => navigate('/orders')} className="px-4 py-2 rounded-lg border text-sm font-semibold">
-          Ve don hang
+          {submitting ? 'Đang xác nhận...' : 'Xác nhận thanh toán'}
         </button>
       </div>
     </div>

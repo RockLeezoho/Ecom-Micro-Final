@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.cursor/
+.github/
+GEMINI.md
+bashrc
+Makefile
+gitignore
+pytest.ini
+README.md
+run.sh
+run_tests.sh
+train-ai/*

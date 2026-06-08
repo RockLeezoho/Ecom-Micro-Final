@@ -1,10 +1,15 @@
+import os
+import logging
+from typing import Iterable
+
+import chromadb
+import joblib
 import torch
 import torch.nn as nn
-import joblib
-import chromadb
-import logging
 from neo4j import GraphDatabase
+from openai import OpenAI
 from sentence_transformers import SentenceTransformer
+
 import app.settings as settings
 
 # Cấu hình logging
@@ -47,8 +52,28 @@ class BehaviorLSTM(nn.Module):
 # --- 2. CLASS MODEL LOADER (Microservice Engine) ---
 class ModelLoader:
     def __init__(self):
+        skip_model_load = os.getenv("AI_SERVICE_SKIP_MODEL_LOAD", "0").lower() in {"1", "true", "yes"}
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logger.info(f"Đang khởi tạo AI Engine trên thiết bị: {self.device}")
+
+        self.llm_client = None
+        self.llm_model = os.getenv("GROQ_MODEL", "qwen/qwen3-32b")
+        self.llm_base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+
+        if skip_model_load:
+            logger.info("AI_SERVICE_SKIP_MODEL_LOAD đã bật, bỏ qua khởi tạo model/Neo4j/Chroma thực tế.")
+            self.prod_enc = None
+            self.act_enc = None
+            self.num_prods = 0
+            self.num_acts = 0
+            self.lstm_params = {}
+            self.lstm_model = None
+            self.graph_driver = None
+            self.chroma_client = None
+            self.collection = None
+            self.embed_model = None
+            self.llm_client = None
+            return
         
         try:
             # A. LOAD ENCODERS
@@ -58,32 +83,59 @@ class ModelLoader:
             self.num_acts = len(self.act_enc.classes_)
             logger.info("Đã load Encoders thành công.")
 
-            # B. KHỞI TẠO LSTM VỚI BEST_PARAMS CỦA BẠN
-            # Các giá trị này được lấy chính xác từ file test của bạn
+            # B. KHỞI TẠO LSTM TỪ CHECKPOINT ĐÃ HUẤN LUYỆN
+            try:
+                state_dict = torch.load(settings.MODEL_PATH, map_location="cpu")
+            except Exception as e:
+                logger.error(f"Không thể load checkpoint từ {settings.MODEL_PATH}: {e}")
+                raise
+
+            embed_dim = state_dict["prod_embed.weight"].shape[1]
+            hidden_dim = state_dict["lstm.weight_hh_l0"].shape[1]
+            n_layers = max(
+                1,
+                len(
+                    {
+                        key.split(".")[1]
+                        for key in state_dict
+                        if key.startswith("lstm.weight_hh_")
+                    }
+                ),
+            )
+            dropout = 0.0
+
             self.lstm_params = {
-                'embed_dim': 128,
-                'hidden_dim': 128,
-                'n_layers': 1,
-                'dropout': 0.2553762031763519
+                "embed_dim": int(embed_dim),
+                "hidden_dim": int(hidden_dim),
+                "n_layers": int(n_layers),
+                "dropout": float(dropout),
             }
-            
+
             self.lstm_model = BehaviorLSTM(
                 num_prods=self.num_prods,
                 num_acts=self.num_acts,
-                **self.lstm_params
+                **self.lstm_params,
             ).to(self.device)
+
+            try:
+                self.lstm_model.load_state_dict(state_dict)
+                logger.info(
+                    "Đã load LSTM model thành công từ %s | params=%s",
+                    settings.MODEL_PATH,
+                    self.lstm_params,
+                )
+            except RuntimeError as e:
+                logger.warning(
+                    "Không thể load checkpoint (mismatch architecture): %s. Sử dụng model với random weights.",
+                    str(e),
+                )
             
-            # Load trọng số (.pth)
-            self.lstm_model.load_state_dict(
-                torch.load(settings.MODEL_PATH, map_location=self.device)
-            )
             self.lstm_model.eval() # Chế độ dự đoán
-            logger.info(f"Đã load LSTM model thành công từ {settings.MODEL_PATH}")
 
             # C. KẾT NỐI NEO4J (Graph Database)
             self.graph_driver = GraphDatabase.driver(
                 settings.NEO4J_URI, 
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+                auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD)
             )
             self.graph_driver.verify_connectivity(database=settings.NEO4J_DATABASE)
             logger.info("Đã kết nối thành công tới Neo4j.")
@@ -97,6 +149,14 @@ class ModelLoader:
             self.embed_model.to(self.device)
             logger.info(f"Đã load Embedding model: {settings.EMBEDDING_MODEL}")
 
+            # E. KHỞI TẠO LLM (Groq OpenAI-compatible)
+            api_key = os.getenv("GROQ_API_KEY")
+            if api_key:
+                self.llm_client = OpenAI(api_key=api_key, base_url=self.llm_base_url)
+                logger.info(f"Đã khởi tạo LLM client: {self.llm_model}")
+            else:
+                logger.warning("GROQ_API_KEY chưa được thiết lập, LLM sẽ bị vô hiệu hóa.")
+
         except Exception as e:
             logger.error(f"Lỗi khởi tạo AI Engines: {str(e)}")
             raise e
@@ -108,73 +168,220 @@ class ModelLoader:
         3. ChromaDB: Lấy sản phẩm gần nhất theo vector embedding
         4. Tính điểm hybrid: final_score = w1*lstm + w2*graph + w3*rag
         """
-        import numpy as np
-        seq_len = 10
-        prod_seq = torch.randint(0, self.num_prods, (1, seq_len)).to(self.device)
-        act_seq = torch.randint(0, self.num_acts, (1, seq_len)).to(self.device)
-        x = torch.stack([prod_seq, act_seq], dim=2).squeeze(0)
-        x = x.unsqueeze(0)  # (1, seq_len, 2)
-        with torch.no_grad():
-            logits = self.lstm_model(x)
-            lstm_probs = torch.softmax(logits, dim=1).cpu().numpy().flatten()
-        lstm_score = {i: lstm_probs[i] for i in range(self.num_prods)}
+        history_prods, history_acts, last_product_name = self._get_user_history_from_graph(user_id)
 
-        # 2. Neo4j: Lấy sản phẩm liên quan (giả lập)
-        graph_products = set()
-        try:
-            from app.settings import settings
-            with self.graph_driver.session(database=settings.NEO4J_DATABASE) as session:
-                cypher = """
-                MATCH (u:User {id: $user_id})-[:PURCHASED|VIEWED]->(p:Product)
-                RETURN p.product_id as pid
-                LIMIT 10
-                """
-                result = session.run(cypher, user_id=user_id)
-                graph_products = set([r["pid"] for r in result])
-        except Exception as e:
-            logger.warning(f"Neo4j query failed: {e}")
+        lstm_score = self._predict_lstm_scores(history_prods, history_acts)
+        graph_products = self._get_graph_related_products(user_id)
+        rag_products = self._get_rag_related_products(user_id, last_product_name)
 
-        # 3. ChromaDB: Vector search (giả lập query embedding)
-        try:
-            user_query = f"user_{user_id}"
-            query_emb = self.embed_model.encode([user_query])
-            results = self.collection.query(query_embeddings=query_emb, n_results=10)
-            rag_products = set([int(pid) for pid in results["ids"][0]])
-        except Exception as e:
-            logger.warning(f"ChromaDB query failed: {e}")
-            rag_products = set()
-
-        # 4. Hybrid score
         w1, w2, w3 = settings.W1_LSTM, settings.W2_GRAPH, settings.W3_RAG
-        all_products = set(list(lstm_score.keys())) | graph_products | rag_products
+        all_products = set(lstm_score.keys()) | graph_products | rag_products
         scored = []
         for pid in all_products:
-            s1 = lstm_score.get(pid, 0)
-            s2 = 1 if pid in graph_products else 0
-            s3 = 1 if pid in rag_products else 0
-            final = w1*s1 + w2*s2 + w3*s3
+            s1 = lstm_score.get(pid, 0.0)
+            s2 = 1.0 if pid in graph_products else 0.0
+            s3 = 1.0 if pid in rag_products else 0.0
+            final = w1 * s1 + w2 * s2 + w3 * s3
             scored.append((pid, final))
         scored.sort(key=lambda x: x[1], reverse=True)
-        top_products = [int(pid) for pid, _ in scored[:3]]
-        return top_products
+        return [pid for pid, _ in scored[:3]]
 
     def chatbot_response(self, query: str):
         """
         1. Embed query
         2. Retrieve sản phẩm liên quan từ ChromaDB
-        3. Sinh câu trả lời dựa trên kết quả (giả lập)
+        3. Sinh câu trả lời dựa trên kết quả (LLM thật)
         """
         try:
             query_emb = self.embed_model.encode([query])
-            results = self.collection.query(query_embeddings=query_emb, n_results=3)
-            product_ids = results["ids"][0]
-            # Giả lập lấy tên sản phẩm, thực tế cần truy vấn thêm DB
-            product_names = [f"Laptop {pid}" for pid in product_ids]
-            response = f"Bạn có thể tham khảo: {', '.join(product_names)}."
+            results = self.collection.query(
+                query_embeddings=query_emb,
+                n_results=3,
+                include=["documents", "metadatas"],
+            )
+            docs = results.get("documents", [[]])[0]
+            metas = results.get("metadatas", [[]])[0]
+            context = self._build_context(docs, metas)
+
+            system_prompt = (
+                "Bạn là trợ lý mua sắm của cửa hàng. "
+                "Quy tắc bắt buộc:\n"
+                "1. LUÔN trả lời bằng tiếng Việt, không dùng ngôn ngữ khác.\n"
+                "2. CHỈ gợi ý các sản phẩm có trong PHẦN NGỮ CẢNH được cung cấp. "
+                "TUYỆT ĐỐI KHÔNG được bịa đặt, suy diễn hoặc đề xuất sản phẩm không có trong ngữ cảnh.\n"
+                "3. Nếu ngữ cảnh không có sản phẩm liên quan, hãy trả lời: "
+                "'Xin lỗi, tôi chưa tìm thấy sản phẩm phù hợp trong hệ thống. "
+                "Bạn có thể thử từ khóa khác.'\n"
+                "4. Trả lời ngắn gọn, thân thiện, không thêm thông tin ngoài ngữ cảnh."
+            )
+            if context:
+                user_prompt = (
+                    f"Câu hỏi của khách: {query}\n\n"
+                    f"Sản phẩm trong hệ thống (chỉ dùng những sản phẩm này):\n{context}"
+                )
+            else:
+                user_prompt = (
+                    f"Câu hỏi của khách: {query}\n\n"
+                    "Ngữ cảnh: Không tìm thấy sản phẩm phù hợp trong hệ thống."
+                )
+
+            llm_answer = self.generate_llm_response(system_prompt, user_prompt)
+            response = llm_answer or "Xin lỗi, tôi chưa tìm thấy sản phẩm phù hợp trong hệ thống. Bạn có thể thử từ khóa khác."
         except Exception as e:
             logger.warning(f"Chatbot RAG failed: {e}")
-            response = "Xin lỗi, tôi chưa tìm được sản phẩm phù hợp."
+            response = "Xin lỗi, tôi chưa tìm thấy sản phẩm phù hợp."
         return response
+
+    def _get_user_history_from_graph(self, user_id: str, limit: int = 50):
+        if not self.graph_driver:
+            return [], [], None
+
+        action_map = {
+            "SEARCH": "search",
+            "VIEW": "view_product",
+            "ENGAGED": "stay_duration",
+            "FILTER_SORT": "filter_sort",
+            "WISHLIST": "wishlist_add",
+            "ADD_TO_CART": "add_to_cart",
+            "PURCHASE": "purchase",
+            "REMOVE_FROM_CART": "remove_from_cart",
+        }
+
+        rel_types = "|".join(action_map.keys())
+        query = f"""
+        MATCH (u:User {{id: $user_id}})-[r:{rel_types}]->(p:Product)
+        RETURN p.id AS pid, p.name AS name, type(r) AS rel, r.time AS time
+        ORDER BY toInteger(r.time) DESC
+        LIMIT $limit
+        """
+
+        history_prods = []
+        history_acts = []
+        last_product_name = None
+
+        try:
+            with self.graph_driver.session(database=settings.NEO4J_DATABASE) as session:
+                result = session.run(query, user_id=user_id, limit=limit)
+                rows = list(result)
+
+            for row in reversed(rows):
+                pid = str(row.get("pid"))
+                rel = row.get("rel")
+                act = action_map.get(rel)
+                if pid and act:
+                    history_prods.append(pid)
+                    history_acts.append(act)
+
+            if rows:
+                last_product_name = rows[0].get("name")
+
+        except Exception as e:
+            logger.warning(f"Neo4j history query failed: {e}")
+
+        return history_prods, history_acts, last_product_name
+
+    def _predict_lstm_scores(self, history_prods: Iterable[str], history_acts: Iterable[str], window_size: int = 15):
+        import numpy as np
+        if not history_prods or not history_acts:
+            return {}
+
+        history_prods = list(history_prods)[-window_size:]
+        history_acts = list(history_acts)[-window_size:]
+
+        try:
+            p_idx = self.prod_enc.transform(history_prods)
+            a_idx = self.act_enc.transform(history_acts)
+        except Exception as e:
+            logger.warning(f"Encoder transform failed: {e}")
+            return {}
+
+        if len(p_idx) < window_size:
+            pad_len = window_size - len(p_idx)
+            p_idx = np.pad(p_idx, (pad_len, 0), 'constant', constant_values=0)
+            a_idx = np.pad(a_idx, (pad_len, 0), 'constant', constant_values=0)
+
+        seq = np.stack((p_idx, a_idx), axis=1)
+        seq_tensor = torch.LongTensor(seq).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            logits = self.lstm_model(seq_tensor)
+            probs = torch.softmax(logits, dim=1).squeeze(0)
+
+        top_probs, top_indices = torch.topk(probs, k=min(50, len(probs)))
+        recommended_ids = self.prod_enc.inverse_transform(top_indices.cpu().numpy())
+        scores = top_probs.cpu().numpy()
+        return {str(pid): float(score) for pid, score in zip(recommended_ids, scores)}
+
+    def _get_graph_related_products(self, user_id: str, limit: int = 10):
+        if not self.graph_driver:
+            return set()
+
+        query = """
+        MATCH (u:User {id: $user_id})-[r:VIEW|PURCHASE|ADD_TO_CART|WISHLIST]->(p:Product)
+        OPTIONAL MATCH (p)-[:SIMILAR]->(sim:Product)
+        WITH collect(DISTINCT p.id) + collect(DISTINCT sim.id) AS ids
+        UNWIND ids AS pid
+        RETURN pid AS id
+        LIMIT $limit
+        """
+
+        try:
+            with self.graph_driver.session(database=settings.NEO4J_DATABASE) as session:
+                result = session.run(query, user_id=user_id, limit=limit)
+                return {str(r["id"]) for r in result if r.get("id")}
+        except Exception as e:
+            logger.warning(f"Neo4j related query failed: {e}")
+            return set()
+
+    def _get_rag_related_products(self, user_id: str, last_product_name: str | None, limit: int = 10):
+        if not self.collection or not self.embed_model:
+            return set()
+
+        query_text = last_product_name or f"Người dùng {user_id}"
+        try:
+            query_emb = self.embed_model.encode([query_text])
+            results = self.collection.query(query_embeddings=query_emb, n_results=limit)
+            return {str(pid) for pid in results.get("ids", [[]])[0]}
+        except Exception as e:
+            logger.warning(f"ChromaDB query failed: {e}")
+            return set()
+
+    def _build_context(self, documents: list[str] | None, metadatas: list[dict] | None) -> str:
+        documents = documents or []
+        metadatas = metadatas or []
+        context_parts = []
+        for idx, doc in enumerate(documents):
+            meta = metadatas[idx] if idx < len(metadatas) else {}
+            name = meta.get("name") or meta.get("title") or ""
+            category = meta.get("category") or ""
+            snippet = doc.strip().replace("\n", " ") if doc else ""
+            if name or category or snippet:
+                context_parts.append(" | ".join(part for part in [name, category, snippet] if part))
+        return "\n".join(context_parts)
+
+    def generate_llm_response(self, system_prompt: str, user_prompt: str) -> str | None:
+        if not self.llm_client:
+            return None
+
+        response = self.llm_client.chat.completions.create(
+            model=self.llm_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=512,
+        )
+        message = response.choices[0].message.content
+        if not message:
+            return None
+
+        # Strip <think>...</think> reasoning blocks (produced by Qwen3 and other
+        # chain-of-thought models). The flag re.DOTALL makes '.' match newlines too.
+        import re
+        cleaned = re.sub(r"<think>.*?</think>", "", message, flags=re.DOTALL)
+        cleaned = cleaned.strip()
+        return cleaned if cleaned else None
     def close(self):
         """Đóng các kết nối khi dừng service"""
         if self.graph_driver:

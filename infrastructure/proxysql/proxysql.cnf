@@ -1,0 +1,184 @@
+# ProxySQL Configuration File
+datadir="/var/lib/proxysql"
+logfile="/var/log/proxysql/proxysql.log"
+
+admin_variables=
+{
+  admin_credentials="admin:admin"
+  mysql_ifaces="0.0.0.0:6032"
+  refresh_interval=2000
+}
+
+mysql_variables=
+{
+  max_connections=2048
+  default_query_timeout=36000
+  connection_max_age_ms=3600000
+  poll_timeout=2000
+  # Listen on multiple ports so each service can use its own proxy port
+  interfaces="0.0.0.0:6033,0.0.0.0:6034,0.0.0.0:6035,0.0.0.0:6036,0.0.0.0:6037"
+  default_schema="information_schema"
+  stacksize=1048576
+  monitor_username="root"
+  monitor_password="root"
+}
+
+# Define backend MySQL servers
+mysql_servers=
+(
+  {
+    hostgroup_id=0
+    hostname="user-db"
+    port=3306
+    weight=1000
+    status="ONLINE"
+    max_connections=200
+    max_replication_lag=0
+    use_ssl=0
+    max_latency_ms=0
+    comment="User Service DB"
+  },
+  {
+    hostgroup_id=1
+    hostname="cart-db"
+    port=3306
+    weight=1000
+    status="ONLINE"
+    max_connections=200
+    max_replication_lag=0
+    use_ssl=0
+    max_latency_ms=0
+    comment="Cart Service DB"
+  },
+  {
+    hostgroup_id=2
+    hostname="order-db"
+    port=3306
+    weight=1000
+    status="ONLINE"
+    max_connections=200
+    max_replication_lag=0
+    use_ssl=0
+    max_latency_ms=0
+    comment="Order Service DB"
+  },
+  {
+    hostgroup_id=3
+    hostname="payment-db"
+    port=3306
+    weight=1000
+    status="ONLINE"
+    max_connections=200
+    max_replication_lag=0
+    use_ssl=0
+    max_latency_ms=0
+    comment="Payment Service DB"
+  },
+  {
+    hostgroup_id=4
+    hostname="shipping-db"
+    port=3306
+    weight=1000
+    status="ONLINE"
+    max_connections=200
+    max_replication_lag=0
+    use_ssl=0
+    max_latency_ms=0
+    comment="Shipping Service DB"
+  }
+)
+
+# Define MySQL users for ProxySQL
+mysql_users=
+(
+  {
+    username="root"
+    password="root"
+    active=1
+    default_hostgroup=0
+    max_connections=200
+  },
+  {
+    username="user_user"
+    password="user_pass"
+    active=1
+    default_hostgroup=0
+    max_connections=100
+  },
+  {
+    username="cart_user"
+    password="cart_pass"
+    active=1
+    default_hostgroup=1
+    max_connections=100
+  },
+  {
+    username="order_user"
+    password="order_pass"
+    active=1
+    default_hostgroup=2
+    max_connections=100
+  },
+  {
+    username="payment_user"
+    password="payment_pass"
+    active=1
+    default_hostgroup=3
+    max_connections=100
+  },
+  {
+    username="shipping_user"
+    password="shipping_pass"
+    active=1
+    default_hostgroup=4
+    max_connections=100
+  }
+)
+
+# Query rules - route to appropriate hostgroup by username
+mysql_query_rules=
+(
+  {
+    rule_id=1
+    active=1
+    username="user_user"
+    destination_hostgroup=0
+    apply=1
+    comment="Route user_user to hostgroup 0"
+  },
+  {
+    rule_id=2
+    active=1
+    username="cart_user"
+    destination_hostgroup=1
+    apply=1
+    comment="Route cart_user to hostgroup 1"
+  },
+  {
+    rule_id=3
+    active=1
+    username="order_user"
+    destination_hostgroup=2
+    apply=1
+    comment="Route order_user to hostgroup 2"
+  },
+  {
+    rule_id=4
+    active=1
+    username="payment_user"
+    destination_hostgroup=3
+    apply=1
+    comment="Route payment_user to hostgroup 3"
+  },
+  {
+    rule_id=5
+    active=1
+    username="shipping_user"
+    destination_hostgroup=4
+    apply=1
+    comment="Route shipping_user to hostgroup 4"
+  }
+)
+
+# Connection pooling settings
+mysql_connection_pool_cycle_ms=3600000

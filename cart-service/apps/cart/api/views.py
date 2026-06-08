@@ -5,6 +5,7 @@ from apps.cart.models import Cart, CartItem
 from apps.cart.api.serializers import (
     CartSerializer, AddCartItemSerializer, UpdateCartItemSerializer, RemoveCartItemSerializer
 )
+from apps.cart.selectors import get_or_create_cart_with_items, get_cart_with_items
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from apps.cart.authentication import InternalServiceAuthentication, JWTBearerAuthentication
@@ -14,7 +15,7 @@ class CartView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        cart, _ = Cart.objects.get_or_create(user_id=request.user.id)
+        cart, _ = get_or_create_cart_with_items(request.user.id)
         serializer = CartSerializer(cart)
         return Response(serializer.data)
 
@@ -46,7 +47,9 @@ class UpdateCartItemView(APIView):
     def patch(self, request):
         serializer = UpdateCartItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        cart = get_object_or_404(Cart, user_id=request.user.id)
+        cart = get_cart_with_items(request.user.id)
+        if not cart:
+            return Response({'detail': 'Cart not found.'}, status=status.HTTP_404_NOT_FOUND)
         try:
             item = CartItem.objects.get(cart=cart, product_id=serializer.validated_data['product_id'])
             item.quantity = serializer.validated_data['quantity']
@@ -63,6 +66,8 @@ class RemoveCartItemView(APIView):
     def delete(self, request):
         serializer = RemoveCartItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        cart = get_object_or_404(Cart, user_id=request.user.id)
+        cart = get_cart_with_items(request.user.id)
+        if not cart:
+            return Response({'detail': 'Cart not found.'}, status=status.HTTP_404_NOT_FOUND)
         deleted, _ = CartItem.objects.filter(cart=cart, product_id__in=serializer.validated_data['product_ids']).delete()
         return Response({'detail': f'Removed {deleted} item(s) from cart.'})

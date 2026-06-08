@@ -1,11 +1,14 @@
 joblib
+numpy<2.0
+scipy>=1.11.0
 fastapi
 uvicorn
+grpcio>=1.64,<2.0
 neo4j
 chromadb
 pydantic
 gunicorn>=21.2,<22.0
-sentence-transformers>=2.7.0
-torch>=2.2.0
-transformers>=4.40.0
+sentence-transformers>=2.7.0,<3.0
+transformers>=4.36.0,<4.40.0
 PyJWT>=2.8,<3.0
+openai>=1.30.0,<2.0

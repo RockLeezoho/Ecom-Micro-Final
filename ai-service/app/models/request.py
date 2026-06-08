@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import List
+from pydantic import Field
+from typing import List, Optional
 
 
 class ChatRequest(BaseModel):
@@ -8,8 +9,9 @@ class ChatRequest(BaseModel):
 
 class RecommendRequest(BaseModel):
     user_id: str
-    history_prods: List[str] = []
-    history_acts: List[str] = []
+    category_key: Optional[str] = None
+    history_prods: List[str] = Field(default_factory=list)
+    history_acts: List[str] = Field(default_factory=list)
     user_query: str = ""
 
 

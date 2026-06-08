@@ -75,6 +75,24 @@ class Condition(str, Enum):
     OPEN_BOX = "OPEN_BOX"
     REFURBISHED = "REFURBISHED"
 
+
+def normalize_product_status(status: ProductStatus | str | None):
+    if isinstance(status, ProductStatus) or status is None:
+        return status
+    try:
+        return ProductStatus(str(status).upper())
+    except ValueError:
+        return status
+
+
+def normalize_origin(origin: Origin | str | None):
+    if isinstance(origin, Origin) or origin is None:
+        return origin
+    try:
+        return Origin(str(origin).upper())
+    except ValueError:
+        return origin
+
 # --- MAIN ENTITIES ---
 
 @dataclass
@@ -97,6 +115,10 @@ class Product:
     images: List[ProductImage] = field(default_factory=list)
     createdAt: datetime = None
     updatedAt: datetime = None
+
+    def __post_init__(self):
+        self.origin = normalize_origin(self.origin)
+        self.status = normalize_product_status(self.status)
 
 @dataclass
 class Book(Product):

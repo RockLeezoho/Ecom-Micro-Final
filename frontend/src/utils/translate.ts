@@ -204,6 +204,7 @@ const messages: Messages = {
   "contact_form_processing_time": "Thời gian xử lý trung bình: 2 - 6 giờ làm việc",
   "contact_form_submit": "Gửi yêu cầu",
   // Order History View
+  "order_history_menu": "Lịch sử đơn hàng",
   "order_history_title": "Lịch sử mua hàng",
   "order_history_description": "Theo dõi kiện hàng và xem lại lịch sử giao dịch.",
   "order_history_empty": "Không tìm thấy đơn hàng",
@@ -226,6 +227,17 @@ const messages: Messages = {
   "checkout_delete_address": "Xóa địa chỉ đang chọn",
   "checkout_delete_address_error": "Không thể xóa địa chỉ",
   "checkout_confirm_delete_address": "Xóa địa chỉ này?",
+  "checkout_fill_required": "Vui lòng chọn địa chỉ, đơn vị vận chuyển và phương thức thanh toán.",
+  "checkout_saved_addresses": "Địa chỉ đã lưu",
+  "checkout_no_saved_addresses": "Chưa có địa chỉ đã lưu",
+  "checkout_input_address_above": "Vui lòng thêm địa chỉ mới ở trên",
+  "checkout_no_address": "Chưa chọn địa chỉ",
+  "checkout_out_of_stock_banner": "Có sản phẩm hết hàng hoặc vượt quá tồn kho. Vui lòng cập nhật giỏ hàng.",
+  "checkout_out_of_stock_error": "Vui lòng xóa hoặc cập nhật số lượng trước khi thanh toán.",
+  "checkout_only_available": "Chỉ còn {count} sản phẩm",
+  "checkout_stock_available": "Tồn kho",
+  "cart_out_of_stock_banner": "Có sản phẩm hết hàng hoặc vượt quá tồn kho. Vui lòng cập nhật giỏ hàng.",
+  "cart_max_stock_hint": "Chỉ còn {count} sản phẩm",
     // Customer Addresses View
     "addresses_title": "Địa chỉ giao hàng",
     "addresses_description": "Quản lý danh sách địa chỉ để thanh toán nhanh hơn.",
@@ -239,6 +251,7 @@ const messages: Messages = {
     "addresses_cannot_add": "Không thể thêm địa chỉ",
     "addresses_cannot_delete": "Không thể xóa địa chỉ",
     "addresses_confirm_delete": "Xóa địa chỉ này?",
+      "click_to_select_checkout": "Chọn để dùng khi thanh toán",
     // Order Details View
     "order_details_title": "Chi tiết đơn hàng",
     "order_details_status_label": "Trạng thái:",
@@ -272,7 +285,12 @@ const messages: Messages = {
   "checkout_subtotal": "Tổng tiền hàng",
   "checkout_shipping_fee": "Phí vận chuyển",
   "checkout_total": "Tổng cộng",
-  "checkout_order_button": "Hoàn tất thanh toán",
+  "checkout_place_order_button": "Đặt hàng",
+  "checkout_order_button": "Thanh toán",
+  "checkout_payment_cod_hint": "COD: bạn đặt hàng ngay và thanh toán khi nhận hàng. Không chuyển qua cổng thanh toán.",
+  "checkout_payment_bank_hint": "Bank transfer: bạn sẽ chuyển sang cổng thanh toán để hoàn tất đơn hàng.",
+  "checkout_payment_cod_option_hint": "Đặt hàng ngay, thanh toán khi nhận.",
+  "checkout_payment_bank_option_hint": "Thanh toán qua chuyển khoản hoặc QR.",
   "checkout_ssl_info": "Mã hóa AES-256 TLS đang hoạt động",
 };
 
@@ -334,3 +352,58 @@ export function t(key: string, params?: Record<string, string | number>) {
   }
   return msg;
 }
+
+export const FILTER_VALUE_TRANSLATIONS: Record<string, string> = {
+  // Origin
+  'VN': 'Việt Nam', 'Origin.VIETNAM': 'Việt Nam',
+  'CN': 'Trung Quốc', 'Origin.CHINA': 'Trung Quốc',
+  'US': 'Mỹ', 'Origin.USA': 'Mỹ',
+  'JP': 'Nhật Bản', 'Origin.JAPAN': 'Nhật Bản',
+  'KR': 'Hàn Quốc', 'Origin.KOREA': 'Hàn Quốc',
+  'GB': 'Anh', 'Origin.UK': 'Anh',
+  'FR': 'Pháp', 'Origin.FRANCE': 'Pháp',
+  'TH': 'Thái Lan', 'Origin.THAILAND': 'Thái Lan',
+  
+  // Language
+  'vi': 'Tiếng Việt', 'Language.VIETNAMESE': 'Tiếng Việt',
+  'en': 'Tiếng Anh', 'Language.ENGLISH': 'Tiếng Anh',
+  'ja': 'Tiếng Nhật', 'Language.JAPANESE': 'Tiếng Nhật',
+  'zh': 'Tiếng Trung', 'Language.CHINESE': 'Tiếng Trung',
+  'fr': 'Tiếng Pháp', 'Language.FRENCH': 'Tiếng Pháp',
+  
+  // Color
+  'WHITE': 'Trắng', 'Color.WHITE': 'Trắng',
+  'BLACK': 'Đen', 'Color.BLACK': 'Đen',
+  'GRAY': 'Xám', 'Color.GRAY': 'Xám',
+  'RED': 'Đỏ', 'Color.RED': 'Đỏ',
+  'BLUE': 'Xanh dương', 'Color.BLUE': 'Xanh dương',
+  'GREEN': 'Xanh lá', 'Color.GREEN': 'Xanh lá',
+  'YELLOW': 'Vàng', 'Color.YELLOW': 'Vàng',
+  'PINK': 'Hồng', 'Color.PINK': 'Hồng',
+  'PURPLE': 'Tím', 'Color.PURPLE': 'Tím',
+  'BROWN': 'Nâu', 'Color.BROWN': 'Nâu',
+  'MULTI-COLOR': 'Nhiều màu', 'Color.MULTI': 'Nhiều màu',
+  
+  // Material
+  'COTTON': 'Cotton', 'Material.COTTON': 'Cotton',
+  'LEATHER': 'Da', 'Material.LEATHER': 'Da',
+  'POLYESTER': 'Polyester', 'Material.POLYESTER': 'Polyester',
+
+  // Gender
+  'MALE': 'Nam', 'Gender.MALE': 'Nam',
+  'FEMALE': 'Nữ', 'Gender.FEMALE': 'Nữ',
+  'UNISEX': 'Unisex', 'Gender.UNISEX': 'Unisex',
+
+  // Season
+  'SPRING': 'Mùa xuân', 'Season.SPRING': 'Mùa xuân',
+  'SUMMER': 'Mùa hè', 'Season.SUMMER': 'Mùa hè',
+  'AUTUMN': 'Mùa thu', 'Season.AUTUMN': 'Mùa thu',
+  'WINTER': 'Mùa đông', 'Season.WINTER': 'Mùa đông',
+
+  // Condition
+  'NEW': 'Mới', 'Condition.NEW': 'Mới',
+  'OPEN_BOX': 'Hàng khui hộp', 'Condition.OPEN_BOX': 'Hàng khui hộp',
+  'REFURBISHED': 'Hàng tân trang', 'Condition.REFURBISHED': 'Hàng tân trang'
+};
+
+export const formatEnum = (val: string) => FILTER_VALUE_TRANSLATIONS[val] || val;

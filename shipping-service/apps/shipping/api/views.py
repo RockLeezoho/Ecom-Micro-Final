@@ -1,15 +1,45 @@
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from .serializers import ShippingMethodSerializer
+
+from apps.shipping.models import Carrier, ShippingMethod
+from .serializers import CarrierSerializer, ShippingMethodSerializer
+
+
+def _carrier_fee(code: str) -> str:
+    value = str(code or "").lower()
+    if value == "ghn":
+        return "35000.00"
+    if value == "ghtk":
+        return "25000.00"
+    if value == "viettelpost":
+        return "30000.00"
+    return "20000.00"
+
+
+class CarrierListAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        carriers = Carrier.objects.filter(is_active=True).order_by("name")
+        payload = [
+            {
+                "code": carrier.code,
+                "name": carrier.name,
+                "contact_number": carrier.contact_number,
+                "fee": _carrier_fee(carrier.code),
+            }
+            for carrier in carriers
+        ]
+        serializer = CarrierSerializer(payload, many=True)
+        return Response(serializer.data)
 
 class ShippingMethodListAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
     def get(self, request):
-        # Static/mock data, replace with DB/model if needed
-        methods = [
-            {"code": "ghn", "name": "Giao hàng nhanh (GHN)", "fee": "35000.00"},
-            {"code": "ghtk", "name": "Giao hàng tiết kiệm (GHTK)", "fee": "25000.00"},
-            {"code": "viettelpost", "name": "Viettel Post", "fee": "30000.00"},
-            {"code": "vnpost", "name": "VNPost", "fee": "20000.00"},
-        ]
+        methods = ShippingMethod.objects.filter(is_active=True).order_by("sort_order", "name")
         serializer = ShippingMethodSerializer(methods, many=True)
         return Response(serializer.data)

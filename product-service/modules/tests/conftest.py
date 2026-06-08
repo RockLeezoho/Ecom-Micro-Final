@@ -4,8 +4,22 @@ Pytest configuration và fixtures cho Product Service tests
 """
 import pytest
 from django.contrib.auth.models import User
+from django.test import override_settings
 from modules.infrastructure.models.product_model import ProductModel
 from modules.infrastructure.models.category_model import CategoryModel
+
+
+@pytest.fixture(autouse=True)
+def test_cache_backend():
+    with override_settings(
+        CACHES={
+            'default': {
+                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                'LOCATION': 'product-service-tests',
+            }
+        }
+    ):
+        yield
 
 
 @pytest.fixture
@@ -37,7 +51,7 @@ def test_product(test_category):
         name="Test Product",
         slug="test-product",
         category=test_category,
-        origin="Vietnam",
+        origin="VN",
         price=100.0,
         import_price=50.0,
         stock=100,
@@ -55,7 +69,7 @@ def test_products(test_category):
             name=f"Test Product {i}",
             slug=f"test-product-{i}",
             category=test_category,
-            origin="Vietnam",
+            origin="VN",
             price=100.0 * (i + 1),
             import_price=50.0 * (i + 1),
             stock=100 + (i * 10),

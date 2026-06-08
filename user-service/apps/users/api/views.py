@@ -26,6 +26,10 @@ from .serializers import (
     UserSerializer,
 )
 
+
+def _is_customer(user):
+    return (getattr(user, 'role', '') or '').lower() == 'customer'
+
 class LoginCustomerApi(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -43,12 +47,18 @@ class LoginCustomerApi(APIView):
             )
         if not user.is_active:
             return Response({"error": "Tài khoản đã bị khóa"}, status=status.HTTP_403_FORBIDDEN)
-        if user.role != "customer":
+        if not _is_customer(user):
             return Response({"error": "Bạn không có quyền đăng nhập hệ thống này."}, status=status.HTTP_403_FORBIDDEN)
         tokens = generate_tokens_for_user(user)
         return Response({
-            "user": UserSerializer(user).data,
-            **tokens
+            "status": "success",
+            "message": "Đăng nhập thành công",
+            "data": {
+                    "user": UserSerializer(user).data,
+                    "access_token": tokens.get('access'),
+                    "refresh_token": tokens.get('refresh'),
+                },
+            "errors": None,
         }, status=status.HTTP_200_OK)
 
 class RegisterCustomerApi(APIView):
@@ -64,7 +74,7 @@ class RegisterCustomerApi(APIView):
                 "status": "success",
                 "message": "Đăng ký thành công",
                 "data": {
-                    "customer": {"id": str(user.id), "username": user.username},
+                    "user": UserSerializer(user).data,
                     "access_token": tokens.get('access'),
                     "refresh_token": tokens.get('refresh'),
                 },
@@ -112,13 +122,13 @@ class BaseProfileApi(APIView):
     serializer_class = None
 
     def get(self, request):
-        if request.user.role != "customer":
+        if not _is_customer(request.user):
             return Response({"error": "Không có quyền truy cập"}, status=403)
         data = get_user_profile(user=request.user)
         return Response(data)
 
     def put(self, request):
-        if request.user.role != "customer":
+        if not _is_customer(request.user):
             return Response({"error": "Không có quyền truy cập"}, status=403)
         data = request.data.copy()
         avatar_file = request.FILES.get('avatar')
@@ -141,31 +151,42 @@ class AddressListCreateApi(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.role == 'customer':
+        if _is_customer(self.request.user):
             return Address.objects.filter(user__id=self.request.user.id)
         return Address.objects.none()
 
     def perform_create(self, serializer):
-        if self.request.user.role == 'customer':
+        if _is_customer(self.request.user):
             serializer.save(user=self.request.user)
         else:
             from rest_framework.exceptions import ValidationError
             raise ValidationError("Chỉ tài khoản khách hàng mới có thể lưu địa chỉ giao hàng.")
 
-class AddressDeleteApi(generics.DestroyAPIView):
+class AddressDetailApi(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Address.objects.all()
-    lookup_field = 'pk'
 
-    def delete(self, request, *args, **kwargs):
+    def _get_address(self, pk):
         try:
-            address = self.get_object()
-            if request.user.role != 'customer' or address.user_id != request.user.id:
-                return Response({"error": "Không có quyền xoá địa chỉ này."}, status=status.HTTP_403_FORBIDDEN)
-            address.delete()
-            return Response({"message": "Đã xoá địa chỉ thành công."}, status=status.HTTP_204_NO_CONTENT)
-        except (DjangoValidationError, DRFValidationError, Address.DoesNotExist):
+            return Address.objects.get(pk=pk)
+        except Address.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        address = self._get_address(pk)
+        if not address:
             return Response({"error": "Không tìm thấy đối tượng"}, status=status.HTTP_404_NOT_FOUND)
+        if not _is_customer(request.user) or address.user_id != request.user.id:
+            return Response({"error": "Không có quyền truy cập địa chỉ này."}, status=status.HTTP_403_FORBIDDEN)
+        return Response(AddressSerializer(address).data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        address = self._get_address(pk)
+        if not address:
+            return Response({"error": "Không tìm thấy đối tượng"}, status=status.HTTP_404_NOT_FOUND)
+        if not _is_customer(request.user) or address.user_id != request.user.id:
+            return Response({"error": "Không có quyền xoá địa chỉ này."}, status=status.HTTP_403_FORBIDDEN)
+        address.delete()
+        return Response({"message": "Đã xoá địa chỉ thành công."}, status=status.HTTP_204_NO_CONTENT)
 
 
 class FavoriteProductListCreateApi(generics.ListCreateAPIView):
@@ -177,7 +198,7 @@ class FavoriteProductListCreateApi(generics.ListCreateAPIView):
         return FavoriteProductSerializer
 
     def get_queryset(self):
-        if self.request.user.role == "customer":
+        if _is_customer(self.request.user):
             return FavoriteProduct.objects.filter(customer_id=self.request.user.id).order_by("-created_at")
         return FavoriteProduct.objects.none()
 
@@ -187,7 +208,7 @@ class FavoriteProductListCreateApi(generics.ListCreateAPIView):
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
-        if request.user.role != "customer":
+        if not _is_customer(request.user):
             return Response({"error": "Chỉ khách hàng có thể thêm yêu thích."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = FavoriteProductCreateSerializer(data=request.data)

@@ -66,6 +66,7 @@ const OrderHistoryView: React.FC<OrderHistoryProps> = ({ orders, onViewDetails, 
            >
                 {t('order_history_to_shop')}
            </button>
+
         </div>
       ) : (
         <div className="space-y-6">

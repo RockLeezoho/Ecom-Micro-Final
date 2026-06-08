@@ -118,6 +118,11 @@ export async function listShippingAddresses(): Promise<ShippingAddress[]> {
   return Array.isArray(data) ? (data as ShippingAddress[]) : [];
 }
 
+export async function fetchShippingAddressById(id: string): Promise<ShippingAddress> {
+  const data = await apiRequest(`/addresses/${id}/`);
+  return data as ShippingAddress;
+}
+
 export async function createShippingAddress(address: string): Promise<ShippingAddress> {
   const data = await apiRequest('/addresses/', {
     method: 'POST',

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+
+cd "$REPO_ROOT"
+
+docker compose -f infrastructure/docker-compose.yml exec user-service python manage.py seed_users "$@"

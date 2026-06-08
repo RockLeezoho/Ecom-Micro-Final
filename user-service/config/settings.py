@@ -66,10 +66,17 @@ def _build_database_config() -> dict:
     return {
         "ENGINE": os.getenv("MYSQL_ENGINE", "django.db.backends.mysql"),
         "NAME": os.getenv("DB_NAME", "user-db"),
-        "USER": os.getenv("DB_USER", "user-user"),
+        "USER": os.getenv("DB_USER", "user_user"),
         "PASSWORD": os.getenv("DB_PASSWORD", "123456"),
-        "HOST": os.getenv("DB_HOST", "user-db"),
-        "PORT": os.getenv("DB_PORT", "3306"),
+        "HOST": os.getenv("DB_HOST", "user-db"),     
+        "PORT": os.getenv("DB_PORT", "3306"),           
+    
+        "CONN_MAX_AGE": int(os.getenv("CONN_MAX_AGE", 600)),                            # Max connection age 10 min
+        "ATOMIC_REQUESTS": False,                       # Handle transactions per-request
+        "OPTIONS": {
+            "charset": "utf8mb4",
+            "init_command": "SET NAMES 'utf8mb4'",
+        },
     }
 
 DATABASES = {"default": _build_database_config()}

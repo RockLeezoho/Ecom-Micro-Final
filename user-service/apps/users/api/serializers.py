@@ -70,7 +70,7 @@ class FavoriteProductSerializer(serializers.ModelSerializer):
 
 
 class FavoriteProductCreateSerializer(serializers.Serializer):
-    product_id = serializers.UUIDField()
+    product_id = serializers.CharField(max_length=100)
 
 
 class UserSerializer(serializers.ModelSerializer, CommonUserFieldsMixin):

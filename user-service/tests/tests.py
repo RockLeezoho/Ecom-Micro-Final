@@ -37,7 +37,9 @@ class UserManagementCrudTests(APITestCase):
         )
 
     def authenticate(self, user):
-        access = str(RefreshToken.for_user(user).access_token)
+        refresh = RefreshToken.for_user(user)
+        refresh["role"] = (getattr(user, "role", "") or "").lower()
+        access = str(refresh.access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
 
     def test_admin_can_crud_staff(self):

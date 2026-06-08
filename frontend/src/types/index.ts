@@ -2,6 +2,7 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+  status?: 'NEW' | 'SELLING' | 'DISCONTINUED' | 'ACTIVE' | 'INACTIVE';
   category: 'sach-luu-tru' | 'thiet-bi-dien-tu' | 'thoi-trang-may-mac';
   subCategory: string;
   rating: number;
@@ -48,6 +49,8 @@ export interface User {
 export interface Order {
   id: string;
   customerId: string;
+  customerName?: string;
+  itemCount?: number;
   items: CartItem[];
   totalAmount: number;
   shippingFee: number;

@@ -151,7 +151,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                    placeholder={t('email_placeholder') || 'ten@vidu.com'}
+                    placeholder={t('ten@gmail.com')}
                     required
                   />
                 </div>
@@ -204,7 +204,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNavigate }) =
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     className="w-full bg-[#F7FAFC] border border-border-theme rounded-md py-2 pl-4 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                    placeholder={t('phone_placeholder') || 'Số điện thoại'}
+                    placeholder={'Số điện thoại'}
                     required
                   />
                 </div>

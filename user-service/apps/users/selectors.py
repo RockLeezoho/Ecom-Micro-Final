@@ -16,8 +16,16 @@ def get_user_profile(user: User) -> dict:
         "is_active": user.is_active,
     }
 
-    if user.role == 'customer':
+    if user.role.lower() == 'customer':
+        from .models import Customer
         customer = getattr(user, 'customer', None)
+        if not customer:
+            customer = (
+                Customer.objects.select_related('user_ptr')
+                .prefetch_related('addresses')
+                .filter(pk=user.pk)
+                .first()
+            )
         if customer:
             data.update({
                 "height": customer.height,
@@ -28,12 +36,12 @@ def get_user_profile(user: User) -> dict:
                 )
             })
 
-    elif user.role == 'staff':
+    elif user.role.lower() == 'staff':
         staff = getattr(user, 'staff', None)
         if staff:
             data["employment_type"] = staff.employment_type
 
-    elif user.role == 'admin':
+    elif user.role.lower() == 'admin':
         admin_obj = getattr(user, 'admin', None)
         if admin_obj:
             data["position"] = admin_obj.position

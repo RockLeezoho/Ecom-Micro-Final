@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Search, ShoppingCart, LogOut, Package, Settings, ShoppingBag, 
-  ChevronDown, ChevronRight, BookOpen, Smartphone, Shirt, 
+import {
+  Search, ShoppingCart, LogOut, Package, Settings, ShoppingBag,
+  ChevronDown, ChevronRight, BookOpen, Smartphone, Shirt,
   Menu, User, Heart, Phone, Mail, MapPin, Grid,
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User as UserType, CartItem, Product } from '../../types';
 import { Category } from '../../services/productService';
 import { recommendProducts } from '../../services/aiService';
+import { t } from '../../utils/translate';
 import Footer from '../Footer';
 import ChatAI from '../ChatAI';
 import ScrollDropdown from '../views/ScrollDropDown.tsx';
@@ -121,7 +122,7 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
   const selectedDropdownCategory = urlTab || 'sach-luu-tru';
   const currentCategoryObject = categoryList.find(cat => cat.slug === selectedDropdownCategory);
   const dropdownLabel = currentCategoryObject ? currentCategoryObject.name : "Sách";
-  
+
   console.log('[CustomerLayout] Category state', {
     categoryCount: categoryList.length,
     categoryList: categoryList.map(c => ({ id: c.id, name: c.name, slug: c.slug })),
@@ -130,7 +131,7 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
     selectedDropdownCategory,
     currentCategoryObject: currentCategoryObject ? { name: currentCategoryObject.name, slug: currentCategoryObject.slug } : null,
   });
-  
+
   const navLinkClass = (path: string) =>
     `hover:text-primary transition-colors ${activePath === path ? 'text-primary border-b-2 border-primary pb-0.5' : ''}`;
 
@@ -138,13 +139,13 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
     <div className="flex flex-col min-h-screen bg-bg-theme font-sans">
       {/* Top Utility Bar */}
       <div className="bg-primary-light/30 border-b border-border-theme h-8 hidden md:flex items-center px-6 justify-between text-[10px] font-bold text-primary">
-        <div className="flex items-center gap-4 uppercase tracking-widest">
-           <span className="flex items-center gap-1"><Phone size={12} /> Hỗ trợ: 1900 1234</span>
-           <span className="flex items-center gap-1"><Mail size={12} /> Email: support@becshop.vn</span>
+        <div className="flex items-center gap-4 tracking-widest">
+          <span className="flex items-center uppercase gap-1">Hỗ trợ: <Phone size={12} />1900 1234</span>
+          <span className="flex items-center uppercase gap-1">Email: <Mail size={12} />support@becshop.vn</span>
         </div>
         <div className="flex items-center gap-4">
-           <span className="hover:underline cursor-pointer">Tra cứu đơn hàng</span>
-           <span className="hover:underline cursor-pointer">Ghi chú vận chuyển</span>
+          <span className="hover:underline cursor-pointer">Tra cứu đơn hàng</span>
+          <span className="hover:underline cursor-pointer">Ghi chú vận chuyển</span>
         </div>
       </div>
 
@@ -152,8 +153,8 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
       <header className="bg-white text-text-main px-6 sticky top-0 z-50 h-[72px] border-b border-border-theme shadow-sm">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between gap-8">
           {/* Logo */}
-          <div 
-            className="flex items-center cursor-pointer gap-2 font-bold text-2xl shrink-0" 
+          <div
+            className="flex items-center cursor-pointer gap-2 font-bold text-2xl shrink-0"
             onClick={() => navigate('/')}
           >
             <img src="/logo_becshop.png" alt="BECShop Logo" className="h-10 w-auto drop-shadow-sm" />
@@ -204,83 +205,90 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
           {/* User & Cart Icons */}
           <div className="flex items-center gap-5 text-xs font-bold text-gray-600">
             <div className="flex items-center gap-6">
-               <div className="flex flex-col items-center gap-1 cursor-pointer hover:text-primary transition-colors relative group">
-                  <Heart size={20} />
-                  <span className="text-[9px] hidden sm:block uppercase tracking-wider">Yêu thích</span>
-               </div>
-               
-               <Link to="/cart" className="flex flex-col items-center gap-1 cursor-pointer hover:text-primary transition-colors relative group">
-                  <div className="relative">
-                    <ShoppingCart size={20} />
-                    {cart.reduce((a, b) => a + b.quantity, 0) > 0 && (
-                      <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black border-2 border-white ring-2 ring-red-500/10">
-                        {cart.reduce((a, b) => a + b.quantity, 0)}
-                      </span>
+              <Link to="/favorites" className="flex flex-col items-center gap-1 cursor-pointer hover:text-primary transition-colors relative group">
+                <Heart size={20} />
+                <span className="text-[9px] hidden sm:block uppercase tracking-wider">Yêu thích</span>
+              </Link>
+
+              <Link to="/cart" className="flex flex-col items-center gap-1 cursor-pointer hover:text-primary transition-colors relative group">
+                <div className="relative">
+                  <ShoppingCart size={20} />
+                  {cart.reduce((a, b) => a + b.quantity, 0) > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black border-2 border-white ring-2 ring-red-500/10">
+                      {cart.reduce((a, b) => a + b.quantity, 0)}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[9px] hidden sm:block uppercase tracking-wider">Giỏ hàng</span>
+              </Link>
+
+              {currentUser ? (
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsUserMenuOpen((v) => !v)}
+                    className="flex items-center gap-2 bg-gray-50 p-1 pr-3 rounded-full border border-gray-100 shadow-sm"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-black overflow-hidden text-[10px]">
+                      {(currentUser.avatarUrl || (currentUser as any).avatar_url) ? (
+                        <img
+                          src={currentUser.avatarUrl || (currentUser as any).avatar_url}
+                          alt={currentUser.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        (currentUser.username?.[0] || currentUser.name?.[0] || 'U').toUpperCase()
+                      )}
+                    </div>
+                    <span className="text-[10px] max-w-[80px] truncate text-gray-700">{currentUser.username}</span>
+                  </button>
+
+                  <AnimatePresence>
+                    {isUserMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        className="absolute right-0 mt-2 w-44 bg-white border border-border-theme rounded-xl shadow-lg z-50 overflow-hidden"
+                      >
+                        <button
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                          onClick={() => { setIsUserMenuOpen(false); navigate('/account/profile'); }}
+                        >
+                          <User size={14} />
+                          Tài khoản
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                          onClick={() => { setIsUserMenuOpen(false); navigate('/account/addresses'); }}
+                        >
+                          <MapPin size={14} />
+                          Địa chỉ
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                          onClick={() => { setIsUserMenuOpen(false); navigate('/orders'); }}
+                        >
+                          <Package size={14} />
+                          {t('order_history_menu')}
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm text-red-500"
+                          onClick={() => { setIsUserMenuOpen(false); onLogout(); }}
+                        >
+                          <LogOut size={14} />
+                          Thoát
+                        </button>
+                      </motion.div>
                     )}
-                  </div>
-                  <span className="text-[9px] hidden sm:block uppercase tracking-wider">Giỏ hàng</span>
-               </Link>
-
-               {currentUser ? (
-                 <div className="relative" ref={userMenuRef}>
-                   <button
-                     type="button"
-                     onClick={() => setIsUserMenuOpen((v) => !v)}
-                     className="flex items-center gap-2 bg-gray-50 p-1 pr-3 rounded-full border border-gray-100 shadow-sm"
-                   >
-                     <div className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-black overflow-hidden text-[10px]">
-                        {(currentUser.avatarUrl || (currentUser as any).avatar_url) ? (
-                          <img 
-                            src={currentUser.avatarUrl || (currentUser as any).avatar_url} 
-                            alt={currentUser.username}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          (currentUser.username?.[0] || currentUser.name?.[0] || 'U').toUpperCase()
-                        )}
-                     </div>
-                     <span className="text-[10px] max-w-[80px] truncate text-gray-700">{currentUser.username}</span>
-                   </button>
-
-                   <AnimatePresence>
-                     {isUserMenuOpen && (
-                       <motion.div
-                         initial={{ opacity: 0, y: -6 }}
-                         animate={{ opacity: 1, y: 0 }}
-                         exit={{ opacity: 0, y: -6 }}
-                         className="absolute right-0 mt-2 w-44 bg-white border border-border-theme rounded-xl shadow-lg z-50 overflow-hidden"
-                       >
-                         <button
-                           className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
-                           onClick={() => { setIsUserMenuOpen(false); navigate('/account/profile'); }}
-                         >
-                           <User size={14} />
-                           Tài khoản
-                         </button>
-                         <button
-                           className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
-                           onClick={() => { setIsUserMenuOpen(false); navigate('/account/addresses'); }}
-                         >
-                           <MapPin size={14} />
-                           Địa chỉ
-                         </button>
-                         <button
-                           className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm text-red-500"
-                           onClick={() => { setIsUserMenuOpen(false); onLogout(); }}
-                         >
-                           <LogOut size={14} />
-                           Thoát
-                         </button>
-                       </motion.div>
-                     )}
-                   </AnimatePresence>
-                 </div>
-               ) : (
-                 <Link to="/login" className="flex flex-col items-center gap-1 cursor-pointer hover:text-primary transition-colors">
-                    <User size={20} />
-                    <span className="text-[9px] hidden sm:block uppercase tracking-wider">Tài khoản</span>
-                 </Link>
-               )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <Link to="/login" className="flex flex-col items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                  <User size={20} />
+                  <span className="text-[9px] hidden sm:block uppercase tracking-wider">Tài khoản</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -294,9 +302,8 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
             <div className="relative h-full" ref={menuRef}>
               <button
                 onClick={() => setIsMenuOpen((open) => !open)}
-                className={`h-full flex items-center gap-3 px-6 text-xs font-black uppercase tracking-widest transition-colors ${
-                  isMenuOpen ? 'bg-primary text-white' : 'bg-primary text-white hover:bg-primary-light hover:text-primary'
-                }`}
+                className={`h-full flex items-center gap-3 px-6 text-xs font-black uppercase tracking-widest transition-colors ${isMenuOpen ? 'bg-primary text-white' : 'bg-primary text-white hover:bg-primary-light hover:text-primary'
+                  }`}
                 type="button"
               >
                 <Grid size={18} />
@@ -361,16 +368,16 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
                         })}
                       </div>
                       <div className="bg-gray-50 p-4 px-8 border-t border-border-theme flex items-center justify-between">
-                         <div className="flex items-center gap-6">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Flash Sale</span>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-primary">Thương hiệu hot</span>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-primary">Mã giảm giá</span>
-                         </div>
-                         <div className="flex items-center gap-3 text-primary">
-                            <FaFacebook size={16} />
-                            <FaTwitter size={16} />
-                            <FaInstagram size={16} />
-                         </div>
+                        <div className="flex items-center gap-6">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Flash Sale</span>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-primary">Thương hiệu hot</span>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-primary">Mã giảm giá</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-primary">
+                          <FaFacebook size={16} />
+                          <FaTwitter size={16} />
+                          <FaInstagram size={16} />
+                        </div>
                       </div>
                     </motion.div>
                   </>
@@ -381,7 +388,6 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
             {/* Direct Links */}
             <div className="flex items-center gap-8 ml-8 text-[11px] font-black uppercase tracking-widest text-[#4A5568]">
               <button className={navLinkClass('/')} onClick={() => navigate('/')}>Trang chủ</button>
-              <button className="hover:text-primary transition-colors text-red-500">Giảm giá sốc</button>
               <button className={navLinkClass('/news')} onClick={() => navigate('/news')}>Tin tức</button>
               <button className={navLinkClass('/contact')} onClick={() => navigate('/contact')}>Liên hệ</button>
             </div>
@@ -389,43 +395,43 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
 
           {/* Secondary Features: Scroll Dropdown */}
           <div className="hidden lg:flex items-center gap-5 text-primary">
-             {(() => {
-               const tabs = categoryList.map((cat) => {
-                 const getIcon = (slug: string) => {
-                   const slugLower = cat.slug.toLowerCase();
-                   if (slugLower.includes('sach-luu-tru') || slugLower.includes('book')) {
-                     return <BookOpen size={14} />;
-                   }
-                   if (slugLower.includes('thiet-bi-dien-tu') || slugLower.includes('electronic')) {
-                     return <Smartphone size={14} />;
-                   }
-                   if (slugLower.includes('thoi-trang-may-mac') || slugLower.includes('fashion')) {
-                     return <Shirt size={14} />;
-                   }
-                   return <Grid size={14} />;
-                 };
-                 return {
-                   id: cat.slug,
-                   label: cat.name,
-                   icon: getIcon(cat.slug),
-                 };
-               });
-               console.log('[CustomerLayout] ScrollDropdown tabs built', {
-                 tabCount: tabs.length,
-                 tabs: tabs.map(t => ({ id: t.id, label: t.label })),
-               });
-               return (
-                 <ScrollDropdown
-                   tabs={tabs}
-                   value={selectedDropdownCategory}
-                   onSelect={(catId) => {
-                     console.log('[ScrollDropdown] onSelect triggered', { catId, timestamp: new Date().toISOString() });
-                     navigate(`/?tab=${encodeURIComponent(catId)}`);
-                   }}
-                   triggerLabel={dropdownLabel}
-                 />
-               );
-             })()}
+            {(() => {
+              const tabs = categoryList.map((cat) => {
+                const getIcon = (slug: string) => {
+                  const slugLower = cat.slug.toLowerCase();
+                  if (slugLower.includes('sach-luu-tru') || slugLower.includes('book')) {
+                    return <BookOpen size={14} />;
+                  }
+                  if (slugLower.includes('thiet-bi-dien-tu') || slugLower.includes('electronic')) {
+                    return <Smartphone size={14} />;
+                  }
+                  if (slugLower.includes('thoi-trang-may-mac') || slugLower.includes('fashion')) {
+                    return <Shirt size={14} />;
+                  }
+                  return <Grid size={14} />;
+                };
+                return {
+                  id: cat.slug,
+                  label: cat.name,
+                  icon: getIcon(cat.slug),
+                };
+              });
+              console.log('[CustomerLayout] ScrollDropdown tabs built', {
+                tabCount: tabs.length,
+                tabs: tabs.map(t => ({ id: t.id, label: t.label })),
+              });
+              return (
+                <ScrollDropdown
+                  tabs={tabs}
+                  value={selectedDropdownCategory}
+                  onSelect={(catId) => {
+                    console.log('[ScrollDropdown] onSelect triggered', { catId, timestamp: new Date().toISOString() });
+                    navigate(`/?tab=${encodeURIComponent(catId)}`);
+                  }}
+                  triggerLabel={dropdownLabel}
+                />
+              );
+            })()}
           </div>
         </div>
       </nav>

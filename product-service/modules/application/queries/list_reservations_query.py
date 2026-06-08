@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 from modules.domain.repositories.stock_reservation_repository import StockReservationRepository
+from modules.domain.entities.stock_reservation import normalize_reservation_status
 
 
 @dataclass
@@ -47,7 +48,7 @@ class ListReservationsQuery:
                 product_id=r.product_id,
                 order_id=r.order_id,
                 quantity=r.quantity,
-                status=r.status.value,
+                status=normalize_reservation_status(r.status).value,
                 expires_at=r.expires_at.isoformat(),
                 created_at=r.created_at.isoformat(),
             )

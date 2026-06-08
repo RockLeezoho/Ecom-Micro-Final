@@ -21,6 +21,7 @@ class CartItem(models.Model):
     
     cart = models.ForeignKey(
         Cart, 
+        db_index=True,
         on_delete=models.CASCADE, 
         related_name='items'
     )
@@ -28,12 +29,13 @@ class CartItem(models.Model):
     product_id = models.UUIDField(db_index=True, verbose_name="ID sản phẩm")
     
     sales_price = models.DecimalField(
+        db_index=True,
         max_digits=12, 
         decimal_places=2,
         verbose_name="Giá bán"
     )
     
-    quantity = models.PositiveIntegerField(default=1, verbose_name="Số lượng")
+    quantity = models.PositiveIntegerField(db_index=True, default=1, verbose_name="Số lượng")
 
     class Meta:
         db_table = 'cart_items'

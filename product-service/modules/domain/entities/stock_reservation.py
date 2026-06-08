@@ -11,6 +11,15 @@ class ReservationStatus(str, Enum):
     EXPIRED = "EXPIRED" 
 
 
+def normalize_reservation_status(status: ReservationStatus | str) -> ReservationStatus:
+    if isinstance(status, ReservationStatus):
+        return status
+    status_text = str(status).upper()
+    if "." in status_text:
+        status_text = status_text.rsplit(".", 1)[-1]
+    return ReservationStatus(status_text)
+
+
 @dataclass
 class StockReservation:
     """Domain Entity cho Stock Reservation (Giữ kho)"""
@@ -23,6 +32,9 @@ class StockReservation:
     created_at: datetime
     released_at: Optional[datetime] = None
     reason: Optional[str] = None  # Lý do hủy giữ
+
+    def __post_init__(self):
+        self.status = normalize_reservation_status(self.status)
 
     def is_expired(self) -> bool:
         """Kiểm tra xem reservation đã hết hạn hay chưa"""

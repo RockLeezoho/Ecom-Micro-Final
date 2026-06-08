@@ -13,7 +13,7 @@ async function request(path: string, init?: RequestInit) {
   const res = await fetch(`${ORDER_API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || data.detail || "Yeu cau that bai");
+    throw new Error(data.error || data.detail || "Có lỗi xảy ra");
   }
   if (res.status === 204) return null;
   return res.json();
@@ -22,8 +22,12 @@ async function request(path: string, init?: RequestInit) {
 export async function createOrder(payload: {
   address_id?: string;
   address_text?: string;
-  payment_method: "COD" | "BANK_TRANSFER" | "E_WALLET" | "CREDIT_CARD";
+  recipient_name?: string;
+  recipient_phone?: string;
+  payment_method: "COD" | "BANK_TRANSFER";
   shipping_method: "STANDARD" | "EXPRESS";
+  shipping_fee?: number;
+  carrier_name?: string;
   items: Array<{ product_id: string; quantity: number; price: number }>;
 }) {
   return request("/", {

@@ -4,13 +4,21 @@ from typing import List, Optional
 from datetime import datetime
 from django.db.models import Q
 from modules.domain.repositories.stock_reservation_repository import StockReservationRepository
-from modules.domain.entities.stock_reservation import StockReservation, ReservationStatus
+from modules.domain.entities.stock_reservation import (
+    StockReservation,
+    ReservationStatus,
+    normalize_reservation_status,
+)
 from modules.infrastructure.models.sock_reservation_model import StockReservationModel
 from modules.infrastructure.models.product_model import ProductModel
 
 
 class StockReservationRepositoryImpl(StockReservationRepository):
     """Infrastructure: Concrete implementation của StockReservationRepository"""
+
+    @staticmethod
+    def _enum_db_value(value):
+        return value.value if hasattr(value, "value") else value
 
     def create(self, reservation: StockReservation) -> StockReservation:
         """Tạo reservation mới"""
@@ -29,7 +37,7 @@ class StockReservationRepositoryImpl(StockReservationRepository):
             order_id=reservation.order_id,
             quantity=reservation.quantity,
             expires_at=reservation.expires_at,
-            status=reservation.status.value,
+            status=self._enum_db_value(normalize_reservation_status(reservation.status)),
             created_at=reservation.created_at,
         )
 
@@ -57,7 +65,7 @@ class StockReservationRepositoryImpl(StockReservationRepository):
         query = StockReservationModel.objects.filter(product_id=product_id)
         
         if status:
-            query = query.filter(status=status.value)
+            query = query.filter(status=self._enum_db_value(normalize_reservation_status(status)))
         
         models = query.order_by('-created_at')
         return [self._model_to_entity(m) for m in models]
@@ -66,7 +74,7 @@ class StockReservationRepositoryImpl(StockReservationRepository):
         """Cập nhật reservation"""
         model = StockReservationModel.objects.get(id=reservation.id)
         model.quantity = reservation.quantity
-        model.status = reservation.status.value
+        model.status = self._enum_db_value(normalize_reservation_status(reservation.status))
         model.expires_at = reservation.expires_at
         
         if hasattr(reservation, 'released_at') and reservation.released_at:
@@ -104,6 +112,6 @@ class StockReservationRepositoryImpl(StockReservationRepository):
             order_id=str(model.order_id),
             quantity=model.quantity,
             expires_at=model.expires_at,
-            status=ReservationStatus(model.status),
+            status=normalize_reservation_status(model.status),
             created_at=model.created_at,
         )

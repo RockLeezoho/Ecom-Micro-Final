@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Filter, CheckCircle2, XCircle, Package, User, PlusCircle } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, PlusCircle, Eye } from 'lucide-react';
 import { Order } from '../../types';
 
 interface StaffOrderProcessProps {
   orders: Order[];
   onConfirm: (orderId: string, allowed: boolean) => void;
   onConsolidate: (orderIds: string[]) => void;
+  onViewDetails: (order: Order) => void;
 }
 
-const StaffOrderProcessView: React.FC<StaffOrderProcessProps> = ({ orders, onConfirm, onConsolidate }) => {
+const StaffOrderProcessView: React.FC<StaffOrderProcessProps> = ({ orders, onConfirm, onConsolidate, onViewDetails }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
-  const filteredOrders = orders.filter(o => 
-    o.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    o.customerId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOrders = orders.filter((o) => {
+    const keyword = searchTerm.toLowerCase();
+    const customerName = (o.customerName || '').toLowerCase();
+    return o.id.toLowerCase().includes(keyword) || customerName.includes(keyword);
+  });
 
   const toggleSelect = (id: string) => {
     setSelectedOrders(prev => 
@@ -32,7 +34,7 @@ const StaffOrderProcessView: React.FC<StaffOrderProcessProps> = ({ orders, onCon
           <div className="relative">
             <input 
               type="text" 
-              placeholder="Lọc theo ID / Khách hàng..."
+              placeholder="Lọc theo ID đơn / Tên khách hàng..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-white border border-border-theme rounded-md py-1.5 pl-9 pr-4 text-xs font-medium focus:ring-1 focus:ring-primary outline-none w-64"
@@ -59,10 +61,10 @@ const StaffOrderProcessView: React.FC<StaffOrderProcessProps> = ({ orders, onCon
             <tr className="bg-[#F7FAFC] border-b border-border-theme">
               <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider text-center">Chọn</th>
               <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Mã đơn hàng</th>
-              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Khách hàng</th>
-              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Số lượng</th>
-              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Tổng tiền</th>
-              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Trạng thái</th>
+              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Tên khách hàng</th>
+              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Số lượng (sản phẩm)</th>
+              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Tổng tiền (VNĐ)</th>
+              <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider">Trạng thái thanh toán</th>
               <th className="px-4 py-3 font-bold text-[#718096] uppercase tracking-wider text-right">Thao tác</th>
             </tr>
           </thead>
@@ -78,25 +80,39 @@ const StaffOrderProcessView: React.FC<StaffOrderProcessProps> = ({ orders, onCon
                       className="rounded border-[#CBD5E0] text-primary focus:ring-primary cursor-pointer w-4 h-4"
                     />
                   </td>
-                  <td className="px-4 py-3 font-bold text-text-main">#{order.id}</td>
+                  <td className="px-4 py-3 font-bold text-text-main">
+                    <span
+                      title={`#${order.id}`}
+                      className="inline-block max-w-[170px] truncate align-bottom"
+                    >
+                      #{order.id}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                       <span className="font-semibold text-[#4A5568]">{order.customerId}</span>
+                       <span className="font-semibold text-[#4A5568]">{order.customerName || 'Chưa cập nhật'}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-[#718096]">
-                    {order.items.length} sản phẩm
+                    {order.itemCount ?? 0}
                   </td>
-                  <td className="px-4 py-3 font-bold text-primary">{order.totalAmount.toLocaleString('vi-VN')} VNĐ</td>
+                  <td className="px-4 py-3 font-bold text-primary">{order.totalAmount.toLocaleString('vi-VN')}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                      order.status === 'awaiting_confirmation' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      order.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
                     }`}>
-                      {order.status === 'awaiting_confirmation' ? 'Chờ xác nhận' : 'Đã hủy'}
+                      {order.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => onViewDetails(order)}
+                        className="p-1.5 text-[#4A5568] hover:bg-gray-100 rounded transition-all"
+                        title="Xem chi tiết"
+                      >
+                        <Eye size={16} />
+                      </button>
                       <button 
                          onClick={() => onConfirm(order.id, true)}
                          className="p-1.5 text-primary hover:bg-primary-light rounded transition-all"

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Product, HomepageData } from '../../types';
 import { Star, ShoppingCart, Eye, Heart, Heart as HeartFilled, Filter, ChevronRight, TrendingUp, Sparkles, Award } from 'lucide-react';
+import { t, formatEnum } from '../../utils/translate';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 
@@ -26,12 +27,13 @@ const ProductCard: React.FC<{
   toggleFavorite?: (id: string) => void | Promise<void>
 }> = ({ product, onProductClick, onAddToCart, onBuyNow, favoriteIds = [], toggleFavorite }) => {
   const isFavorite = favoriteIds.includes(product.id);
+  const isOutOfStock = Number(product.stock || 0) <= 0;
   
   const getProductIcon = (category: string): string => {
     const cat = String(category || '').toLowerCase();
-    if (cat.includes('sach') || cat.includes('book')) return '📘';
-    if (cat.includes('dien') || cat.includes('electronic') || cat.includes('computer')) return '💻';
-    if (cat.includes('thoi') || cat.includes('fashion') || cat.includes('cloth')) return '👕';
+    if (cat.includes('sach-luu-tru') || cat.includes('book')) return '📘';
+    if (cat.includes('thiet-bi-dien-tu') || cat.includes('electronic') || cat.includes('computer')) return '💻';
+    if (cat.includes('thoi-trang-may-mac') || cat.includes('fashion') || cat.includes('cloth')) return '👕';
     return '📦';
   };
   
@@ -49,6 +51,9 @@ const ProductCard: React.FC<{
             Bán chạy
           </span>
         )}
+        <span className={`flex items-center px-2 py-0.5 rounded font-extrabold uppercase text-[10px] border shadow-sm ${isOutOfStock ? 'bg-red-100 text-red-700 border-red-200' : 'bg-green-100 text-green-700 border-green-200'}`}>
+          {isOutOfStock ? 'Hết hàng' : `Còn ${product.stock}`}
+        </span>
       </div>
       <button
         type="button"
@@ -87,7 +92,7 @@ const ProductCard: React.FC<{
               </defs>
             </svg>
           </span>
-          <span>{product.origin}</span>
+          <span>{formatEnum(product.origin)}</span>
         </div>
         <div className="text-[15px] font-bold text-primary mt-auto">
           {product.price.toLocaleString('en-US')}VNĐ
@@ -95,16 +100,18 @@ const ProductCard: React.FC<{
       </div>
       <div className="grid grid-cols-2 gap-1 mt-1">
         <button 
-          onClick={() => onAddToCart(product)}
-          className="btn-dense bg-primary-light text-primary text-[11px] py-1.5 text-center font-bold"
+          onClick={() => !isOutOfStock && onAddToCart(product)}
+          disabled={isOutOfStock}
+          className="btn-dense bg-primary-light text-primary text-[11px] py-1.5 text-center font-bold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Thêm
+          {isOutOfStock ? 'Hết hàng' : 'Thêm'}
         </button>
         <button 
-          onClick={() => onBuyNow(product)}
-          className="btn-dense bg-primary text-white text-[11px] py-1.5 text-center font-bold"
+          onClick={() => !isOutOfStock && onBuyNow(product)}
+          disabled={isOutOfStock}
+          className="btn-dense bg-primary text-white text-[11px] py-1.5 text-center font-bold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Mua ngay
+          {isOutOfStock ? 'Hết hàng' : 'Mua ngay'}
         </button>
       </div>
     </motion.div>
@@ -131,7 +138,7 @@ const HomeView: React.FC<HomeViewProps> = ({ products, homepageData, homepageLoa
   const homepageProducts = homepageData || null;
   const newProducts = homepageProducts?.new_arrivals || [];
   const suggested = homepageProducts?.recommended || [];
-  const favorites = products.filter(p => p.isFavorite && p.category === activeTab);
+  const favorites = products.filter(p => favoriteIds.includes(p.id) && p.category === activeTab);
   const bestSelling = homepageProducts?.best_sellers || [];
 
   // Đổi tên danh mục hiển thị cho note

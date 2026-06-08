@@ -53,12 +53,12 @@ DATABASES = {
     "default": {
         "ENGINE": os.getenv("MYSQL_ENGINE", "django.db.backends.mysql"),
         "NAME": os.getenv("DB_NAME", "payment-db"),
-        "USER": os.getenv("DB_USER", "payment-user"),
+        "USER": os.getenv("DB_USER", "payment_user"),
         "PASSWORD": os.getenv("DB_PASSWORD", "123456"),
         "HOST": os.getenv("DB_HOST", "payment-db"),
-        "PORT": os.getenv("DB_PORT", "3308"),
+        "PORT": os.getenv("DB_PORT", "3306"),
         "OPTIONS": {
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES', NAMES 'utf8mb4'",
         },
     }
 }

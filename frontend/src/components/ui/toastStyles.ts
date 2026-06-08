@@ -1,4 +1,4 @@
-import type { ToastTone } from './Toast';
+import type { ToastTone } from './toastTypes';
 
 export const toastContainerClassName = (tone: ToastTone): string =>
   `rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md ${

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
+import traceback
 
 from modules.presentation.api.serializers.stock_reservation_serializer import (
     CreateStockReservationSerializer,
@@ -25,7 +26,7 @@ from modules.infrastructure.repositories.stock_reservation_repository_impl impor
 )
 from modules.infrastructure.repositories.product_repository_impl import ProductRepositoryImpl
 from modules.infrastructure.models.sock_reservation_model import StockReservationModel
-from modules.domain.entities.stock_reservation import ReservationStatus
+from modules.domain.entities.stock_reservation import ReservationStatus, normalize_reservation_status
 from modules.presentation.api.authentication import InternalServiceAuthentication, JWTBearerAuthentication
 
 
@@ -64,6 +65,8 @@ class StockReservationCreateAPIView(APIView):
             # Khởi tạo repositories
             stock_reservation_repo = StockReservationRepositoryImpl()
             product_repo = ProductRepositoryImpl()
+            
+            print("Creating stock reservation with data.")
 
             # Khởi tạo command
             command = CreateStockReservationCommand(stock_reservation_repo, product_repo)
@@ -128,7 +131,7 @@ class StockReservationDetailAPIView(APIView):
                     "product_id": entity.product_id,
                     "order_id": entity.order_id,
                     "quantity": entity.quantity,
-                    "status": entity.status.value,
+                    "status": normalize_reservation_status(entity.status).value,
                     "expires_at": entity.expires_at,
                     "created_at": entity.created_at,
                 }
@@ -149,9 +152,10 @@ class StockReservationDetailAPIView(APIView):
         try:
             # Khởi tạo repository
             stock_reservation_repo = StockReservationRepositoryImpl()
+            product_repo = ProductRepositoryImpl()
 
             # Khởi tạo command
-            command = ReleaseStockReservationCommand(stock_reservation_repo)
+            command = ReleaseStockReservationCommand(stock_reservation_repo, product_repo)
 
             # Tạo input
             input_dto = ReleaseStockReservationInput(
@@ -177,6 +181,7 @@ class StockReservationDetailAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
+            traceback.print_exc()
             return Response(
                 {"error": f"Internal error: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -217,7 +222,7 @@ class StockReservationConfirmAPIView(APIView):
             if reservation.status != ReservationStatus.ACTIVE:
                 return Response(
                     {
-                        "error": f"Cannot confirm reservation with status {reservation.status.value}"
+                        "error": f"Cannot confirm reservation with status {normalize_reservation_status(reservation.status).value}"
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -229,7 +234,7 @@ class StockReservationConfirmAPIView(APIView):
             return Response(
                 {
                     "reservation_id": str(updated.id),
-                    "status": updated.status.value,
+                    "status": normalize_reservation_status(updated.status).value,
                 },
                 status=status.HTTP_200_OK,
             )

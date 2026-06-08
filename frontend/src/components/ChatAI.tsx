@@ -15,7 +15,6 @@ interface Message {
 const ChatAI: React.FC = () => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 384, height: 500 });
   const [isResizing, setIsResizing] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -102,7 +101,7 @@ const ChatAI: React.FC = () => {
     <div className="fixed bottom-6 right-24 z-50 pointer-events-none">
       <div className="pointer-events-auto relative">
         <AnimatePresence>
-          {isOpen && !isMinimized && (
+          {isOpen && (
             <motion.div
               ref={chatWindowRef}
               initial={{ opacity: 0, y: 20, scale: 0.9, transformOrigin: 'bottom right' }}
@@ -148,7 +147,7 @@ const ChatAI: React.FC = () => {
                     <Maximize2 size={18} />
                   </button>
                   <button 
-                    onClick={() => setIsMinimized(true)}
+                    onClick={() => setIsOpen(false)}
                     className="p-2 hover:bg-white/10 rounded-full transition-colors"
                   >
                     <div className="w-4 h-0.5 bg-white rounded-full" />
@@ -230,19 +229,6 @@ const ChatAI: React.FC = () => {
               </div>
             </motion.div>
           )}
-
-          {isMinimized && isOpen && (
-            <motion.button
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              onClick={() => setIsMinimized(false)}
-              className="absolute bottom-16 right-0 bg-primary text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 hover:bg-primary-dark transition-all font-bold text-xs border-2 border-white"
-            >
-              <BotMessageSquare size={16} fill="currentColor" />
-              <span>Tiếp tục trò chuyện</span>
-            </motion.button>
-          )}
         </AnimatePresence>
 
         <motion.button
@@ -251,7 +237,6 @@ const ChatAI: React.FC = () => {
           onClick={() => {
             if (isOpen) {
               setIsOpen(false);
-              setIsMinimized(false);
             } else {
               setIsOpen(true);
             }

@@ -20,6 +20,8 @@ urlpatterns = [
     path('products/homepage/', HomepageAPIView.as_view(), name='product-homepage'),
     path('categories/', CategoryListAPIView.as_view(), name='product-category-list'),
     path('categories/all/', CategoryAllFlatAPIView.as_view(), name='product-category-all-flat'),
+    path('products/list/', ProductListView.as_view(), name='product-list'),
+    path('products/filters/', ProductFilterMetaView.as_view(), name='product-filter-meta'),
 
     # Stock reservation endpoints must be before the router-generated product detail patterns
     path('products/reservations/', StockReservationCreateAPIView.as_view(), name='stock-reservation-create'),
@@ -29,8 +31,7 @@ urlpatterns = [
 
     # Router URLs (detail/list) come after explicit reservation routes
     path('', include(router.urls)),
-    path('products/', ProductListView.as_view(), name='product-list'),
-    path('products/filters/', ProductFilterMetaView.as_view(), name='product-filter-meta'),
+    path('products/', ProductListView.as_view(), name='product-list-legacy'),
     path('products/<slug:slug>/', ProductDetailAPIView.as_view(), name='product-detail'),
     path('health/', HealthCheckAPIView.as_view(), name='health'),
 ]

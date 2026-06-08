@@ -38,7 +38,7 @@ const StaffHandoverView: React.FC<StaffHandoverProps> = ({ orders, onBack, onHan
                 <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Biên bản chuyển giao chính thức cho nhà vận chuyển</p>
             </div>
             <div className="text-right">
-                <img src="/lgo6.png" alt="Logo" className="h-16 w-16 mb-2 inline-block" />
+                <img src="/logo_becshop.png" alt="BECShop Logo" className="h-16 w-16 mb-2 inline-block" />
                 <div className="text-primary font-black text-xl">BECShop LLC Việt Nam</div>
             </div>
         </div>

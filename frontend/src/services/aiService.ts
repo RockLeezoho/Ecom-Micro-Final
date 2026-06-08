@@ -27,7 +27,9 @@ async function mapProductIdsToDetails(ids: string[] = []): Promise<Product[]> {
       return product;
     })
   );
-  return rows.filter((item): item is Product => Boolean(item));
+  
+  const validProducts = rows.filter((item): item is Product => Boolean(item));
+  return validProducts;
 }
 
 // Kết nối tới AI Service qua API Gateway

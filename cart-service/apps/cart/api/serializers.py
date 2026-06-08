@@ -17,7 +17,9 @@ class CartSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user_id', 'items', 'total', 'created_at', 'updated_at']
 
     def get_total(self, obj):
-        return sum(item.subtotal for item in obj.items.all())
+        # Use the prefetched items if available (no extra query), else fall back to .all()
+        items = obj.items.all()
+        return sum(item.subtotal for item in items)
 
 class AddCartItemSerializer(serializers.Serializer):
     product_id = serializers.UUIDField()

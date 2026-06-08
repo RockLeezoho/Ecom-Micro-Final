@@ -1,7 +1,3 @@
-# docker-compose.yml
-# Enterprise Clean Version
-# Each service uses its own .env file
-# No root .env required
 
 services:
 
@@ -18,8 +14,20 @@ services:
       - "3000:3000"
     depends_on:
       api-gateway:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "http://127.0.0.1:3000", "-q", "-O", "-"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -36,20 +44,32 @@ services:
       - "8080:8000"
     depends_on:
       user-service:
-        condition: service_started
+        condition: service_healthy
       product-service:
-        condition: service_started
+        condition: service_healthy
       cart-service:
-        condition: service_started
+        condition: service_healthy
       order-service:
-        condition: service_started
+        condition: service_healthy
       payment-service:
-        condition: service_started
+        condition: service_healthy
       shipping-service:
-        condition: service_started
+        condition: service_healthy
       ai-service:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8000/health/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
     networks:
       - app-network
 
@@ -68,16 +88,23 @@ services:
       user-db:
         condition: service_healthy
     restart: unless-stopped
-    # Developer-friendly volume: mount local code into container so changes take effect without rebuild
     volumes:
       - ../user-service:/app
     environment:
       - DJANGO_DEBUG=1
+      - USER_SEED_ON_STARTUP=0
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8001/health/ || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health/').getcode()==200 else 1)\""]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 8
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -97,6 +124,12 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -116,7 +149,21 @@ services:
     depends_on:
       product-db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/api/health/').getcode()==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -135,6 +182,12 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -154,39 +207,61 @@ services:
       - ../ai-service/models:/app/models
       - ../ai-service/artifacts:/app/artifacts
       - ai-db-data:/app/chromadb
-    depends_on:
-      neo4j:
-        condition: service_healthy
-      product-service:
-        condition: service_started
+    # depends_on:
+    #   neo4j:
+    #     condition: service_healthy
     command: >
       gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 180
       app.main:app
       --bind 0.0.0.0:8002
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health').getcode()==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+        reservations:
+          memory: 512M
     networks:
       - app-network
 
-  neo4j:
-    image: neo4j:5.12-community
-    container_name: neo4j
-    environment:
-      NEO4J_AUTH: neo4j/12345678
-      NEO4J_PLUGINS: '["apoc"]'
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4j-data:/data
-      - neo4j-logs:/logs
-    healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "12345678", "RETURN 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-    restart: unless-stopped
-    networks:
-      - app-network
+  # neo4j:
+  #   image: neo4j:5.12-community
+  #   container_name: neo4j
+  #   environment:
+  #     NEO4J_AUTH: neo4j/123456
+  #     NEO4J_PLUGINS: '["apoc"]'
+  #     NEO4J_dbms_memory_heap_initial__size: 512M
+  #     NEO4J_dbms_memory_heap_max__size: 768M
+  #     NEO4J_dbms_memory_pagecache__size: 256M
+  #     NEO4J_dbms_security_procedures_unrestricted: 'apoc.*'
+  #     NEO4J_server_config_strict__validation_enabled: "false"
+  #   ports:
+  #     - "7474:7474"
+  #     - "7687:7687"
+  #   volumes:
+  #     - neo4j-data:/data
+  #     - neo4j-logs:/logs
+  #   healthcheck:
+  #     test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "123456", "RETURN 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 10
+  #     start_period: 30s
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1G
+  #       reservations:
+  #         memory: 512M
+  #   networks:
+  #     - app-network
 
   # ==================================================
   # CART SERVICE + MYSQL
@@ -203,8 +278,20 @@ services:
       cart-db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8004/api/health/').getcode()==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -224,6 +311,12 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -236,12 +329,26 @@ services:
     container_name: order-service
     env_file:
       - ../order-service/.env
+    environment:
+      - SHIPPING_SERVICE_URL=http://shipping-service:8007/api
     ports:
       - "8005:8005"
     depends_on:
       order-db:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8005/api/health/').getcode()==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -261,6 +368,12 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -281,6 +394,18 @@ services:
       rabbitmq:
         condition: service_started
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8006/api/payments/health/').getcode()==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -300,6 +425,12 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -318,6 +449,18 @@ services:
       shipping-db:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8007/api/shipping/health/').getcode()==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -332,11 +475,18 @@ services:
     volumes:
       - shipping-db-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD --silent || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 30s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -348,7 +498,18 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
     networks:
       - app-network
 
@@ -361,7 +522,19 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 60s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     networks:
       - app-network
 
@@ -382,6 +555,10 @@ volumes:
   order-db-data:
   payment-db-data:
   shipping-db-data:
-  neo4j-data:
-  neo4j-logs:
+  # neo4j-data:
+  # neo4j-logs:
   ai-db-data:
+
+
+# DOCKER_BUILDKIT=1 docker-compose build
+# DOCKER_BUILDKIT=1 docker build -t ten_image .

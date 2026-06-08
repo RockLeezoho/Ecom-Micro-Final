@@ -24,9 +24,11 @@ const CartView: React.FC<CartViewProps> = ({
   onNavigate
 }) => {
   const selectedItems = items.filter(item => item.selected);
+  const unavailableItems = selectedItems.filter((item) => Number(item.stock || 0) <= 0 || item.quantity > Number(item.stock || 0));
   const subtotal = selectedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const shipping = selectedItems.length > 0 ? 5.0 : 0;
   const total = subtotal + shipping;
+  const canCheckout = selectedItems.length > 0 && unavailableItems.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -59,6 +61,11 @@ const CartView: React.FC<CartViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 flex flex-col gap-3">
+            {unavailableItems.length > 0 && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-red-600">
+                {t('cart_out_of_stock_banner') || 'Có sản phẩm hết hàng hoặc vượt quá tồn kho. Vui lòng cập nhật giỏ hàng.'}
+              </div>
+            )}
             <div className="bg-primary-light border border-primary/10 p-2 px-4 rounded-md flex items-center justify-between">
               <span className="text-[11px] font-bold text-primary">
                 Đã chọn: {selectedItems.length} / {items.length} sản phẩm
@@ -107,11 +114,22 @@ const CartView: React.FC<CartViewProps> = ({
                   <span className="w-6 text-center text-[11px] font-bold text-text-main">{item.quantity}</span>
                   <button 
                     onClick={() => onUpdateQuantity(item.id, 1)}
-                    className="p-1 hover:bg-white rounded transition-colors text-[#718096]"
+                    disabled={Number(item.stock || 0) <= 0 || item.quantity >= Number(item.stock || 0)}
+                    className="p-1 hover:bg-white rounded transition-colors text-[#718096] disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Plus size={12} />
                   </button>
                 </div>
+
+                {Number(item.stock || 0) <= 0 ? (
+                  <div className="text-[9px] font-black uppercase tracking-widest text-red-500 whitespace-nowrap">
+                    {t('out_of_stock')}
+                  </div>
+                ) : item.quantity >= Number(item.stock || 0) ? (
+                  <div className="text-[9px] font-black uppercase tracking-widest text-amber-500 whitespace-nowrap">
+                    {t('cart_max_stock_hint') || `Chỉ còn ${Number(item.stock || 0)} sản phẩm`}
+                  </div>
+                ) : null}
                 
                 <button 
                   onClick={() => onRemove(item.id)}
@@ -144,9 +162,9 @@ const CartView: React.FC<CartViewProps> = ({
               
               <button 
                 onClick={onCheckout}
-                disabled={selectedItems.length === 0}
+                disabled={!canCheckout}
                 className={`w-full py-2.5 rounded font-bold text-[11px] uppercase tracking-widest flex items-center justify-center transition-all ${
-                  selectedItems.length > 0 
+                  canCheckout 
                   ? 'bg-primary text-white hover:bg-opacity-90 shadow-sm' 
                   : 'bg-[#EDF2F7] text-[#A0AEC0] cursor-not-allowed'
                 }`}

@@ -37,7 +37,21 @@ class ProductService:
         category_scope_ids = self.product_catalog_repository.get_category_scope_ids(category.id)
         new_arrivals = self.product_catalog_repository.get_new_arrivals(category, category_scope_ids=category_scope_ids)
         popular = self.product_catalog_repository.get_popular(category, category_scope_ids=category_scope_ids)
-        recommended_ids, bestseller_ids = self._get_homepage_related_ids(category.id)
+        recommendation_category_key = category.slug or category.name or category.id
+
+        executor = ThreadPoolExecutor(max_workers=2)
+        recommended_future = executor.submit(self._get_recommended_product_ids, recommendation_category_key)
+        bestseller_future = executor.submit(self._get_best_seller_product_ids, category.id)
+        try:
+            recommended_ids = recommended_future.result(timeout=2)
+        except FutureTimeoutError:
+            recommended_ids = []
+        try:
+            bestseller_ids = bestseller_future.result(timeout=2)
+        except FutureTimeoutError:
+            bestseller_ids = []
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
         return HomepageReadModel(
             new_arrivals=[self._to_card_read_model(item) for item in new_arrivals],
@@ -63,41 +77,37 @@ class ProductService:
 
         return [self._to_related_read_model(item) for item in self.product_catalog_repository.get_products_by_ids(list(related_ids)[:8])]
 
-    def _get_homepage_related_ids(self, category_id: str) -> tuple[list[str], list[str]]:
-        cache_key_ai = f"ai_recommend_{category_id}"
-        cache_key_order = f"order_bestseller_{category_id}"
-        recommended_ids = self.cache_gateway.get(cache_key_ai)
-        bestseller_ids = self.cache_gateway.get(cache_key_order)
+    def _get_recommended_product_ids(self, category_id: str) -> list[str]:
+        cache_key = f"ai_recommend_{category_id}"
+        cached_ids = self.cache_gateway.get(cache_key)
+        if cached_ids is not None:
+            return cached_ids
 
-        def fetch_ai():
-            return self.recommendation_gateway.get_recommended_product_ids(str(category_id))
+        try:
+            recommended_ids = self.recommendation_gateway.get_recommended_product_ids(str(category_id))
+        except FutureTimeoutError:
+            recommended_ids = []
+        except Exception:
+            recommended_ids = []
 
-        def fetch_order():
-            return self.order_gateway.get_best_seller_product_ids(str(category_id))
+        self.cache_gateway.set(cache_key, recommended_ids, timeout=ProductService.HOMEPAGE_CACHE_TTL)
+        return recommended_ids
 
-        with ThreadPoolExecutor() as executor:
-            futures = {}
-            if recommended_ids is None:
-                futures['ai'] = executor.submit(fetch_ai)
-            if bestseller_ids is None:
-                futures['order'] = executor.submit(fetch_order)
-            results = {}
-            for key, future in futures.items():
-                try:
-                    results[key] = future.result(timeout=2)
-                except FutureTimeoutError:
-                    results[key] = []
-                except Exception:
-                    results[key] = []
+    def _get_best_seller_product_ids(self, category_id: str) -> list[str]:
+        cache_key = f"order_bestseller_{category_id}"
+        cached_ids = self.cache_gateway.get(cache_key)
+        if cached_ids is not None:
+            return cached_ids
 
-        if recommended_ids is None:
-            recommended_ids = results.get('ai', [])
-            self.cache_gateway.set(cache_key_ai, recommended_ids, timeout=ProductService.HOMEPAGE_CACHE_TTL)
-        if bestseller_ids is None:
-            bestseller_ids = results.get('order', [])
-            self.cache_gateway.set(cache_key_order, bestseller_ids, timeout=ProductService.HOMEPAGE_CACHE_TTL)
+        try:
+            bestseller_ids = self.order_gateway.get_best_seller_product_ids(str(category_id))
+        except FutureTimeoutError:
+            bestseller_ids = []
+        except Exception:
+            bestseller_ids = []
 
-        return recommended_ids, bestseller_ids
+        self.cache_gateway.set(cache_key, bestseller_ids, timeout=ProductService.HOMEPAGE_CACHE_TTL)
+        return bestseller_ids
 
     def _to_category_read_model(self, category) -> CategoryReadModel:
         return CategoryReadModel(

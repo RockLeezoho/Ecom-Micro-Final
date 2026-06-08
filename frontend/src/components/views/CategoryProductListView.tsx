@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { mockProducts } from '../../data/mockData';
 import { useParams } from 'react-router-dom';
 import { Product } from '../../types';
 import { Heart, Star } from 'lucide-react';
@@ -15,8 +14,8 @@ interface CategoryProductListViewProps {
 }
 
 const CATEGORY_FILTERS: Record<string, { label: string; fields: { key: string; label: string; type?: string; options?: string[] }[] }> = {
-  books: {
-    label: t('category_books'),
+  'sach-luu-tru': {
+    label: 'Sách lưu trữ',
     fields: [
       { key: 'origin', label: t('origin') },
       { key: 'language', label: 'Ngôn ngữ' },
@@ -25,18 +24,17 @@ const CATEGORY_FILTERS: Record<string, { label: string; fields: { key: string; l
       { key: 'rating', label: 'Đánh giá', type: 'rating' },
     ],
   },
-  electronics: {
-    label: t('category_electronics'),
+  'thiet-bi-dien-tu': {
+    label: 'Thiết bị điện tử',
     fields: [
       { key: 'origin', label: t('origin') },
       { key: 'brand', label: 'Thương hiệu' },
-      { key: 'color', label: 'Màu sắc' },
       { key: 'price', label: t('price'), type: 'range' },
       { key: 'rating', label: 'Đánh giá', type: 'rating' },
     ],
   },
-  fashion: {
-    label: t('category_fashion'),
+  'thoi-trang-may-mac': {
+    label: 'Thời trang may mặc',
     fields: [
       { key: 'origin', label: t('origin') },
       { key: 'brand', label: 'Thương hiệu' },
@@ -88,6 +86,21 @@ const ProductCard: React.FC<{
   toggleFavorite?: (id: string) => void;
 }> = ({ product, onProductClick, onAddToCart, onBuyNow, favoriteIds = [], toggleFavorite }) => {
   const isFavorite = favoriteIds.includes(product.id);
+  const isOutOfStock = Number(product.stock || 0) <= 0;
+
+  const getProductIcon = (category: string | { slug?: string, name?: string }): string => {
+    let catStr = '';
+    if (typeof category === 'string') {
+      catStr = category;
+    } else if (category) {
+      catStr = category.slug || category.name || '';
+    }
+    const cat = catStr.toLowerCase();
+    if (cat.includes('sach') || cat.includes('book')) return '📘';
+    if (cat.includes('dien') || cat.includes('electronic') || cat.includes('computer')) return '💻';
+    if (cat.includes('thoi') || cat.includes('fashion') || cat.includes('cloth')) return '👕';
+    return '📦';
+  };
 
   return (
     <div className="card-dense flex flex-col gap-2 relative bg-white">
@@ -97,6 +110,9 @@ const ProductCard: React.FC<{
             {t('best_seller')}
           </span>
         )}
+        <span className={`flex items-center px-2 py-0.5 rounded font-extrabold uppercase text-[10px] border shadow-sm ${isOutOfStock ? 'bg-red-100 text-red-700 border-red-200' : 'bg-green-100 text-green-700 border-green-200'}`}>
+          {isOutOfStock ? t('out_of_stock') : `${t('stock_label')}: ${product.stock}`}
+        </span>
       </div>
       <button
         type="button"
@@ -111,7 +127,7 @@ const ProductCard: React.FC<{
         className="h-[100px] bg-[#F7FAFC] rounded flex items-center justify-center text-3xl cursor-pointer"
         onClick={() => onProductClick(product)}
       >
-        {product.id.startsWith('b') ? '📘' : product.id.startsWith('e') ? '📱' : '👕'}
+        {getProductIcon(product.category as any)}
       </div>
 
       <div className="flex flex-col gap-1 flex-1">
@@ -143,7 +159,7 @@ const ProductCard: React.FC<{
               </defs>
             </svg>
           </span>
-          <span>{product.origin}</span>
+          <span>{formatFilterValue(product.origin)}</span>
         </div>
         <div className="text-[15px] font-bold text-primary mt-auto">
             {product.price.toLocaleString('en-US')} {t('vnd_text')}
@@ -152,21 +168,78 @@ const ProductCard: React.FC<{
 
       <div className="grid grid-cols-2 gap-1 mt-1">
         <button
-          onClick={() => onAddToCart(product)}
-          className="btn-dense bg-primary-light text-primary text-[11px] py-1.5 text-center font-bold"
+          onClick={() => !isOutOfStock && onAddToCart(product)}
+          disabled={isOutOfStock}
+          className="btn-dense bg-primary-light text-primary text-[11px] py-1.5 text-center font-bold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {t('add')}
+          {isOutOfStock ? t('out_of_stock') : t('add')}
         </button>
         <button
-          onClick={() => onBuyNow(product)}
-          className="btn-dense bg-primary text-white text-[11px] py-1.5 text-center font-bold"
+          onClick={() => !isOutOfStock && onBuyNow(product)}
+          disabled={isOutOfStock}
+          className="btn-dense bg-primary text-white text-[11px] py-1.5 text-center font-bold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {t('buy_now')}
+          {isOutOfStock ? t('out_of_stock') : t('buy_now')}
         </button>
       </div>
     </div>
   );
 };
+
+const FILTER_VALUE_TRANSLATIONS: Record<string, string> = {
+  // Origin
+  'VN': 'Việt Nam', 'Origin.VIETNAM': 'Việt Nam',
+  'CN': 'Trung Quốc', 'Origin.CHINA': 'Trung Quốc',
+  'US': 'Mỹ', 'Origin.USA': 'Mỹ',
+  'JP': 'Nhật Bản', 'Origin.JAPAN': 'Nhật Bản',
+  'KR': 'Hàn Quốc', 'Origin.KOREA': 'Hàn Quốc',
+  'GB': 'Anh', 'Origin.UK': 'Anh',
+  'FR': 'Pháp', 'Origin.FRANCE': 'Pháp',
+  'TH': 'Thái Lan', 'Origin.THAILAND': 'Thái Lan',
+  
+  // Language
+  'vi': 'Tiếng Việt', 'Language.VIETNAMESE': 'Tiếng Việt',
+  'en': 'Tiếng Anh', 'Language.ENGLISH': 'Tiếng Anh',
+  'ja': 'Tiếng Nhật', 'Language.JAPANESE': 'Tiếng Nhật',
+  'zh': 'Tiếng Trung', 'Language.CHINESE': 'Tiếng Trung',
+  'fr': 'Tiếng Pháp', 'Language.FRENCH': 'Tiếng Pháp',
+  
+  // Color
+  'WHITE': 'Trắng', 'Color.WHITE': 'Trắng',
+  'BLACK': 'Đen', 'Color.BLACK': 'Đen',
+  'GRAY': 'Xám', 'Color.GRAY': 'Xám',
+  'RED': 'Đỏ', 'Color.RED': 'Đỏ',
+  'BLUE': 'Xanh dương', 'Color.BLUE': 'Xanh dương',
+  'GREEN': 'Xanh lá', 'Color.GREEN': 'Xanh lá',
+  'YELLOW': 'Vàng', 'Color.YELLOW': 'Vàng',
+  'PINK': 'Hồng', 'Color.PINK': 'Hồng',
+  'PURPLE': 'Tím', 'Color.PURPLE': 'Tím',
+  'BROWN': 'Nâu', 'Color.BROWN': 'Nâu',
+  'MULTI-COLOR': 'Nhiều màu', 'Color.MULTI': 'Nhiều màu',
+  
+  // Material
+  'COTTON': 'Cotton', 'Material.COTTON': 'Cotton',
+  'LEATHER': 'Da', 'Material.LEATHER': 'Da',
+  'POLYESTER': 'Polyester', 'Material.POLYESTER': 'Polyester',
+
+  // Gender
+  'MALE': 'Nam', 'Gender.MALE': 'Nam',
+  'FEMALE': 'Nữ', 'Gender.FEMALE': 'Nữ',
+  'UNISEX': 'Unisex', 'Gender.UNISEX': 'Unisex',
+
+  // Season
+  'SPRING': 'Mùa xuân', 'Season.SPRING': 'Mùa xuân',
+  'SUMMER': 'Mùa hè', 'Season.SUMMER': 'Mùa hè',
+  'AUTUMN': 'Mùa thu', 'Season.AUTUMN': 'Mùa thu',
+  'WINTER': 'Mùa đông', 'Season.WINTER': 'Mùa đông',
+
+  // Condition
+  'NEW': 'Mới', 'Condition.NEW': 'Mới',
+  'OPEN_BOX': 'Hàng khui hộp', 'Condition.OPEN_BOX': 'Hàng khui hộp',
+  'REFURBISHED': 'Hàng tân trang', 'Condition.REFURBISHED': 'Hàng tân trang'
+};
+
+const formatFilterValue = (val: string) => FILTER_VALUE_TRANSLATIONS[val] || val;
 
 const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ products, onProductClick, onAddToCart, onBuyNow, favoriteIds = [], toggleFavorite }) => {
   const { categoryId = '', subCategoryId = '' } = useParams();
@@ -176,14 +249,12 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
   const filterConfig = CATEGORY_FILTERS[categoryKey];
   const decodedSubCategory = decodeURIComponent(subCategoryId);
   const normalizedSubCategory = normalizeSlug(decodedSubCategory);
-  const mappedSubCategory = SUBCATEGORY_ALIASES[categoryKey]?.[normalizedSubCategory] || decodedSubCategory;
-  const normalizedMappedSubCategory = normalizeSlug(mappedSubCategory);
 
   const filteredProducts = useMemo(() => {
-    const sourceProducts = products.length > 0 ? products : mockProducts;
+    const sourceProducts = products;
     const filterFn = (p: Product) => {
       if (categoryKey && p.category !== categoryKey) return false;
-      if (subCategoryId && normalizeSlug(p.subCategory) !== normalizedMappedSubCategory) return false;
+      if (subCategoryId && p.categoryId !== subCategoryId && normalizeSlug(p.subCategory) !== normalizedSubCategory) return false;
       for (const field of filterConfig?.fields || []) {
         const val = filters[field.key];
         if (val) {
@@ -200,19 +271,25 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
       return true;
     };
     return sourceProducts.filter(filterFn);
-  }, [products, categoryKey, subCategoryId, normalizedMappedSubCategory, filters, filterConfig]);
+  }, [products, categoryKey, subCategoryId, normalizedSubCategory, filters, filterConfig]);
 
   if (!filterConfig) return <div className="p-8 text-center text-gray-400">{t('category_not_found')}</div>;
 
-  // Lấy giá trị duy nhất cho các trường select từ mock hoặc products
+  // Lấy giá trị duy nhất cho các trường select từ products
   const getOptions = (field: string) => {
-    const source = products.length > 0 ? products : mockProducts;
+    const source = products;
     return Array.from(new Set(source.filter(p => (!categoryKey || p.category === categoryKey)).map(p => p[field]).filter(Boolean)));
   };
 
+  const subCategoryName = useMemo(() => {
+    if (!subCategoryId) return '';
+    const match = products.find(p => p.categoryId === subCategoryId || normalizeSlug(p.subCategory) === normalizedSubCategory);
+    return match ? match.subCategory : decodedSubCategory;
+  }, [products, subCategoryId, normalizedSubCategory, decodedSubCategory]);
+
   return (
     <div className="max-w-7xl mx-auto py-8 px-2 md:px-6">
-      <h1 className="text-base font-bold text-primary mb-4 uppercase tracking-tight">{filterConfig.label}{subCategoryId ? ` - ${decodedSubCategory}` : ''}</h1>
+      <h1 className="text-base font-bold text-primary mb-4 uppercase tracking-tight">{filterConfig.label}{subCategoryId ? ` - ${subCategoryName}` : ''}</h1>
       <div className="flex flex-col md:flex-row gap-8">
         {/* Sidebar Filter */}
         <aside className="w-full md:w-64 flex-shrink-0 mb-6 md:mb-0">
@@ -236,9 +313,15 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
                     <div key={field.key} className="mb-4 pb-4 border-b border-gray-100">
                       <div className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-widest">{field.label}</div>
                       <div className="flex gap-2 items-center">
-                        <input type="number" placeholder={t('range_from')} className="border border-gray-200 rounded px-3 py-1 w-20 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" value={filters[field.key]?.min || ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], min: Number(e.target.value) } }))} />
+                        <div className="relative">
+                          <input type="number" placeholder={t('range_from')} className="border border-gray-200 rounded pl-2 pr-10 py-1 w-24 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none text-sm" value={filters[field.key]?.min ? filters[field.key].min / 1000 : ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], min: e.target.value ? Number(e.target.value) * 1000 : undefined } }))} />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">.000đ</span>
+                        </div>
                         <span className="text-gray-400">-</span>
-                        <input type="number" placeholder={t('range_to')} className="border border-gray-200 rounded px-3 py-1 w-20 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" value={filters[field.key]?.max || ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], max: Number(e.target.value) } }))} />
+                        <div className="relative">
+                          <input type="number" placeholder={t('range_to')} className="border border-gray-200 rounded pl-2 pr-10 py-1 w-24 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none text-sm" value={filters[field.key]?.max ? filters[field.key].max / 1000 : ''} onChange={e => setFilters(f => ({ ...f, [field.key]: { ...f[field.key], max: e.target.value ? Number(e.target.value) * 1000 : undefined } }))} />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">.000đ</span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -293,7 +376,7 @@ const CategoryProductListView: React.FC<CategoryProductListViewProps> = ({ produ
                               checked={filters[field.key] === opt}
                               onChange={() => setFilters(f => ({ ...f, [field.key]: opt }))}
                             />
-                            <span className="text-sm">{opt}</span>
+                            <span className="text-sm">{formatFilterValue(String(opt))}</span>
                           </label>
                         ))}
                       </div>

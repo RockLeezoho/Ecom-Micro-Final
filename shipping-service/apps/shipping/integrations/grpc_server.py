@@ -3,6 +3,7 @@ from concurrent import futures
 import json
 from django.conf import settings
 from apps.shipping.models import Shipment, Carrier, ShipmentLog
+from apps.shipping.selectors import get_shipment_with_relations
 from . import shipping_pb2, shipping_pb2_grpc
 import pika
 
@@ -39,12 +40,19 @@ def publish_shipment_created_event(shipment):
     connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
     channel = connection.channel()
     channel.exchange_declare(exchange='shipping_events', exchange_type='fanout', durable=True)
+    # re-fetch with relations to avoid lazy-loading extra queries when accessing related fields
+    try:
+        shipment = get_shipment_with_relations(shipment.id)
+    except Exception:
+        # fallback to provided object if re-fetch fails
+        pass
+
     event = {
         'event': 'ShipmentCreatedEvent',
         'order_id': str(shipment.order_id),
         'shipment_id': str(shipment.id),
         'tracking_number': shipment.tracking_number,
-        'label_url': shipment.label_url,
+        'label_url': getattr(shipment, 'label_url', None),
     }
     channel.basic_publish(
         exchange='shipping_events', routing_key='',

@@ -3,56 +3,62 @@ set -e
 
 # ==============================
 # User Service Entrypoint
-# Production Ready Version
+# Production Ready - ProxySQL Architecture
 # ==============================
 
-MYSQL_HOST=${MYSQL_HOST:-user-db}
-MYSQL_PORT=${MYSQL_PORT:-3306}
+# Read database connection from env (from docker-compose or .env)
+# Defaults follow deployment model: DB_HOST should be 'proxysql' (pooler) or 'user-db' (direct)
+DB_HOST=${DB_HOST:-proxysql}
+DB_PORT=${DB_PORT:-6033}
 
-echo "--- Đang đợi MySQL ($MYSQL_HOST:$MYSQL_PORT) sẵn sàng... ---"
+echo "--- Waiting for database at $DB_HOST:$DB_PORT ... ---"
 
-# chờ DB mở port
-until nc -z "$MYSQL_HOST" "$MYSQL_PORT"; do
-  echo "MySQL chưa sẵn sàng... đợi 2s"
+# Wait until database (or pooler) responds
+until nc -z "$DB_HOST" "$DB_PORT"; do
+  echo "Database not ready yet... waiting 2s"
   sleep 2
 done
 
-echo "--- MySQL đã sẵn sàng! ---"
+echo "--- Database is ready! ($DB_HOST:$DB_PORT) ---"
 
 # ==============================
-# Nếu chạy makemigrations thì bỏ qua migrate auto
+# Skip migrations for certain commands
 # ==============================
 if [ "$1" = "python" ] && [ "$2" = "manage.py" ] && [ "$3" = "makemigrations" ]; then
-    echo "--- Chế độ makemigrations: bỏ qua migrate auto ---"
+    echo "[INFO] makemigrations mode: skipping auto-migrate"
     exec "$@"
 fi
 
-# Nếu chạy shell thì bỏ qua migrate
 if [ "$1" = "python" ] && [ "$2" = "manage.py" ] && [ "$3" = "shell" ]; then
-    echo "--- Chế độ shell: bỏ qua migrate auto ---"
+    echo "[INFO] shell mode: skipping auto-migrate"
     exec "$@"
 fi
 
-# Nếu chạy createsuperuser thì bỏ qua migrate
 if [ "$1" = "python" ] && [ "$2" = "manage.py" ] && [ "$3" = "createsuperuser" ]; then
-    echo "--- Chế độ createsuperuser: bỏ qua migrate auto ---"
+    echo "[INFO] createsuperuser mode: skipping auto-migrate"
     exec "$@"
 fi
 
 # ==============================
-# Auto migrate
+# Auto-migrate database schema
 # ==============================
-echo "--- Đang migrate database... ---"
+echo "[INFO] Running database migrations..."
 python manage.py migrate --noinput
 
 # ==============================
-# Seed data (không crash nếu lỗi)
+# Seed sample data on demand only.
+# Default is off in compose so startup does not block api-gateway/frontend.
 # ==============================
-echo "--- Đang seed dữ liệu mẫu... ---"
-python manage.py seed_users || true
+if [ "${USER_SEED_ON_STARTUP:-0}" = "1" ]; then
+    echo "[INFO] Seeding sample user data in the background..."
+    python manage.py seed_users --refresh >/tmp/user-seed.log 2>&1 &
+    echo "[INFO] Seed started asynchronously; logs will be written to /tmp/user-seed.log"
+else
+    echo "[INFO] Skipping user seed on startup (USER_SEED_ON_STARTUP=0)"
+fi
 
 # ==============================
-# Run main command
+# Start main application
 # ==============================
-echo "--- Khởi động service... ---"
+echo "[INFO] Starting user-service..."
 exec "$@"

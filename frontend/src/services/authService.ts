@@ -30,13 +30,37 @@ export interface AuthSession {
   refresh: string;
 }
 
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as { exp?: number };
+  } catch {
+    return null;
+  }
+}
+
+export function getJwtExpiryMs(token: string) {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return null;
+  return payload.exp * 1000;
+}
+
+export function getAutoLogoutDelayMs(token: string, safetyWindowMs = 30000) {
+  const expiryMs = getJwtExpiryMs(token);
+  if (!expiryMs) return 0;
+  return Math.max(expiryMs - Date.now() - safetyWindowMs, 0);
+}
+
 function buildDisplayName(user: BackendUser): string {
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
   return fullName || user.username || user.email;
 }
 
 export function mapApiUser(user: BackendUser, fallbackRole?: User['role']): User {
-  const role = user.role || fallbackRole || 'customer';
+  const role = (user.role?.toLowerCase() || fallbackRole || 'customer') as User['role'];
   const employmentType =
     user.employment_type === 'Part-time' ? 'Part-time' : user.employment_type ? 'Full-time' : undefined;
 
@@ -84,15 +108,21 @@ async function requestUserLogin(endpoint: string, username: string, password: st
     throw new Error(await parseError(res, 'Đăng nhập thất bại'));
   }
 
-  const data = await res.json();
+  const response_data = await res.json();
+  const payload = response_data.data;
   return {
-    user: mapApiUser(data.user),
-    access: data.access,
-    refresh: data.refresh,
+    user: mapApiUser(payload.user),
+    access: payload.access_token ?? payload.access,
+    refresh: payload.refresh_token ?? payload.refresh,
   } as AuthSession;
 }
 
-async function requestManagementLogin(endpoint: string, username: string, password: string) {
+async function requestManagementLogin(
+  endpoint: string,
+  username: string,
+  password: string,
+  fallbackRole?: User['role']
+) {
   const res = await fetch(`${MANAGEMENT_API_BASE}${endpoint}`, {
     method: 'POST',
     headers: {
@@ -105,10 +135,10 @@ async function requestManagementLogin(endpoint: string, username: string, passwo
     throw new Error(await parseError(res, 'Đăng nhập thất bại'));
   }
 
-  const data = await res.json();
-  const payload = data?.data ?? data;
+  const response_data = await res.json();
+  const payload = response_data?.data ?? response_data;
   return {
-    user: mapApiUser(payload.user),
+    user: mapApiUser(payload.user, fallbackRole),
     access: payload.access_token ?? payload.access,
     refresh: payload.refresh_token ?? payload.refresh,
   } as AuthSession;
@@ -120,18 +150,18 @@ export async function loginUser(username: string, password: string, roleType: Lo
   }
 
   if (roleType === 'admin') {
-    return requestManagementLogin('/auth/login/admin/', username, password);
+    return requestManagementLogin('/auth/login/admin/', username, password, 'admin');
   }
 
-  return requestManagementLogin('/auth/login/staff/', username, password);
+  return requestManagementLogin('/auth/login/staff/', username, password, 'staff');
 }
 
 export async function loginAdmin(username: string, password: string) {
-  return requestManagementLogin('/auth/login/admin/', username, password);
+  return requestManagementLogin('/auth/login/admin/', username, password, 'admin');
 }
 
 export async function loginStaff(username: string, password: string) {
-  return requestManagementLogin('/auth/login/staff/', username, password);
+  return requestManagementLogin('/auth/login/staff/', username, password, 'staff');
 }
 
 export function saveSession(session: AuthSession) {
@@ -169,6 +199,7 @@ export async function logoutUser(refreshToken?: string | null) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-Skip-Auth-Interceptor': '1',
     },
     body: JSON.stringify({ refresh }),
   }).catch(() => undefined);

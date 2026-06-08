@@ -29,7 +29,7 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
   };
 
   useEffect(() => {
-    if (currentUser?.role === 'customer') {
+    if ((currentUser?.role || '').toLowerCase() === 'customer') {
       load();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,7 +61,7 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
     }
   };
 
-  if (!currentUser || currentUser.role !== 'customer') {
+  if (!currentUser || (currentUser.role || '').toLowerCase() !== 'customer') {
     return <div className="p-8 text-center text-gray-400">{t('please_login_customer')}</div>;
   }
 
@@ -104,23 +104,30 @@ const CustomerAddressesView: React.FC<CustomerAddressesViewProps> = ({ currentUs
       ) : (
         <div className="space-y-4">
           {addresses.map((item) => (
-            <div key={item.id} className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400">
+            <div key={item.id} className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex items-start justify-between gap-4 group cursor-pointer">
+              <div className="flex items-start gap-3 flex-1">
+                <div className="h-10 w-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-primary-light group-hover:text-primary group-hover:border-primary transition-all">
                   <MapPin size={18} />
                 </div>
-                <div className="font-bold text-gray-800">{item.address}</div>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-800 group-hover:text-primary transition-colors text-sm line-clamp-2">{item.address}</p>
+                  <p className="text-xs text-gray-400 font-medium mt-1">{t('click_to_select_checkout') || 'Chọn để dùng khi thanh toán'}</p>
+                </div>
               </div>
               <button
                 onClick={() => remove(item.id)}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all flex-shrink-0"
               >
                 <Trash2 size={18} />
               </button>
             </div>
           ))}
-          {addresses.length === 0 && <div className="py-16 text-center text-gray-400 font-medium">Chưa có địa chỉ nào.</div>}
-                   {addresses.length === 0 && <div className="py-16 text-center text-gray-400 font-medium">{t('addresses_empty')}</div>}
+          {addresses.length === 0 && (
+            <div className="py-16 text-center">
+              <MapPin size={32} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-400 font-medium">{t('addresses_empty')}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,12 +1,23 @@
 from typing import List, Optional
 from modules.domain.repositories.product_repository import ProductRepository
-from modules.domain.entities.product import Product, Book, Fashion, Electronic
+from modules.domain.entities.product import (
+    Product,
+    Book,
+    Fashion,
+    Electronic,
+    normalize_origin,
+    normalize_product_status,
+)
 from modules.domain.entities.image import ProductImage
 from modules.domain.entities.category import Category
 from modules.infrastructure.models.product_model import ProductModel, BookModel, FashionModel, ElectronicModel
 from modules.infrastructure.models.image_model import ProductImageModel
 from modules.infrastructure.models.category_model import CategoryModel
 from django.db import transaction
+
+
+def _enum_db_value(value):
+    return value.value if hasattr(value, "value") else value
 
 class ProductRepositoryImpl(ProductRepository):
     def get_by_id(self, product_id: str) -> Optional[Product]:
@@ -29,12 +40,12 @@ class ProductRepositoryImpl(ProductRepository):
             name=product.name,
             slug=product.slug,
             category_id=product.category.id,
-            origin=product.origin.value,
+            origin=_enum_db_value(normalize_origin(product.origin)),
             price=product.price,
             import_price=product.importPrice,
             stock=product.stock,
             rating=product.rating,
-            status=product.status.value,
+            status=_enum_db_value(normalize_product_status(product.status)),
             view_count=product.viewCount
         )
         # Images
@@ -53,12 +64,12 @@ class ProductRepositoryImpl(ProductRepository):
         model.name = product.name
         model.slug = product.slug
         model.category_id = product.category.id
-        model.origin = product.origin.value
+        model.origin = _enum_db_value(normalize_origin(product.origin))
         model.price = product.price
         model.import_price = product.importPrice
         model.stock = product.stock
         model.rating = product.rating
-        model.status = product.status.value
+        model.status = _enum_db_value(normalize_product_status(product.status))
         model.view_count = product.viewCount
         model.save()
         # Update images (simple: delete all, re-add)
@@ -95,13 +106,13 @@ class ProductRepositoryImpl(ProductRepository):
         return Product(
             id=str(model.id),
             name=model.name,
-            origin=model.origin,
+            origin=normalize_origin(model.origin),
             category=category,
             price=model.price,
             importPrice=model.import_price,
             stock=model.stock,
             rating=model.rating,
-            status=model.status,
+            status=normalize_product_status(model.status),
             viewCount=model.view_count,
             image=next((img for img in images if img.is_avatar), None),
             images=images,

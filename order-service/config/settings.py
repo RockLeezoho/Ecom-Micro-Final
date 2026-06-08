@@ -16,7 +16,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
-    "apps.order",
+    "apps.order.apps.OrderConfig",
 ]
 
 MIDDLEWARE = [
@@ -50,19 +50,23 @@ TEMPLATES = [
     }
 ]
 
+_DB_ENGINE = os.getenv("MYSQL_ENGINE", "django.db.backends.mysql")
 DATABASES = {
     "default": {
-        "ENGINE": os.getenv("MYSQL_ENGINE", "django.db.backends.mysql"),
+        "ENGINE": _DB_ENGINE,
         "NAME": os.getenv("DB_NAME", "order-db"),
-        "USER": os.getenv("DB_USER", "order-user"),
+        "USER": os.getenv("DB_USER", "order_user"),
         "PASSWORD": os.getenv("DB_PASSWORD", "123456"),
         "HOST": os.getenv("DB_HOST", "order-db"),
         "PORT": os.getenv("DB_PORT", "3306"),
-        "OPTIONS": {
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
     }
 }
+
+# Only include MySQL-specific connection options when using MySQL engine
+if "mysql" in (_DB_ENGINE or "").lower():
+    DATABASES["default"]["OPTIONS"] = {
+        "init_command": "SET sql_mode='STRICT_TRANS_TABLES', NAMES 'utf8mb4'",
+    }
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("apps.order.authentication.JWTBearerAuthentication",),

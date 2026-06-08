@@ -1,6 +1,7 @@
 # order-service/apps/order/tests/test_order_with_stock_reservation.py
 import pytest
 import json
+import uuid
 from decimal import Decimal
 from django.test import TestCase
 from django.contrib.auth.models import User
@@ -19,14 +20,20 @@ class OrderStockReservationIntegrationTest(TestCase):
     def setUp(self):
         """Setup fixtures"""
         self.client = APIClient()
+        self.customer_id = str(uuid.uuid4())
         
         # Create test user (customer)
         self.user = User.objects.create_user(
             username='testcustomer',
             email='customer@test.com',
-            password='testpass123',
-            id='550e8400-e29b-41d4-a716-446655440001'
+            password='testpass123'
         )
+        self.staff = User.objects.create_user(
+            username='teststaff',
+            email='staff@test.com',
+            password='testpass123'
+        )
+        setattr(self.staff, 'role', 'staff')
         self.client.force_authenticate(user=self.user)
 
     def test_full_order_flow_with_stock_reservation(self):
@@ -40,6 +47,7 @@ class OrderStockReservationIntegrationTest(TestCase):
         
         # ================== STEP 1: Tạo Order ==================
         order_data = {
+            'customer_id': self.customer_id,
             'address_id': '550e8400-e29b-41d4-a716-446655440010',
             'payment_method': 'BANK_TRANSFER',
             'shipping_method': 'STANDARD',
@@ -59,6 +67,7 @@ class OrderStockReservationIntegrationTest(TestCase):
 
         # Mock Product Service API calls
         with patch('apps.order.gateways.ProductServiceGateway.create_stock_reservation') as mock_create_res, \
+               patch('apps.order.gateways.ProductServiceGateway.get_product_snapshot') as mock_get_snapshot, \
              patch('apps.order.gateways.ProductServiceGateway.get_reservations_by_order') as mock_get_res, \
              patch('apps.order.gateways.ProductServiceGateway.confirm_stock_reservation') as mock_confirm_res, \
              patch('apps.order.gateways.ProductServiceGateway.release_stock_reservation') as mock_release_res, \
@@ -84,13 +93,17 @@ class OrderStockReservationIntegrationTest(TestCase):
                     'status': 'ACTIVE'
                 },
             ]
+            mock_get_snapshot.side_effect = [
+                {'id': order_data['items'][0]['product_id'], 'category': {'id': '11111111-1111-1111-1111-111111111111', 'slug': 'cat-a'}},
+                {'id': order_data['items'][1]['product_id'], 'category': {'id': '22222222-2222-2222-2222-222222222222', 'slug': 'cat-b'}},
+            ]
             
             mock_payment.return_value = 'https://payment.example.com/pay?order_id=xxx'
             mock_cart.return_value = None
             
             # ===== CREATE ORDER =====
             response = self.client.post(
-                '/api/v1/orders/',
+                '/api/orders/',
                 data=json.dumps(order_data),
                 content_type='application/json'
             )
@@ -103,13 +116,15 @@ class OrderStockReservationIntegrationTest(TestCase):
             order = Order.objects.get(id=order_id)
             self.assertEqual(order.status, 'PENDING')
             self.assertEqual(order.payment_method, 'BANK_TRANSFER')
-            self.assertEqual(order.user_id, self.user.id)
+            self.assertEqual(str(order.user_id), self.customer_id)
             
             # Verify order items created
             order_items = OrderItem.objects.filter(order=order)
             self.assertEqual(order_items.count(), 2)
             self.assertEqual(order_items[0].quantity, 5)
             self.assertEqual(order_items[1].quantity, 3)
+            self.assertEqual(str(order_items[0].category_id), '11111111-1111-1111-1111-111111111111')
+            self.assertEqual(str(order_items[1].category_id), '22222222-2222-2222-2222-222222222222')
             
             # Verify total price
             expected_total = Decimal('5') * Decimal('100') + Decimal('3') * Decimal('200')
@@ -156,26 +171,32 @@ class OrderStockReservationIntegrationTest(TestCase):
             
             handle_payment_success_event(payment_event)
             
-            # Verify order status changed to PROCESSING
+            # Verify order stays pending confirmation after payment success
+            order.refresh_from_db()
+            self.assertEqual(order.status, 'PENDING')
+            self.assertTrue(order.is_paid)
+
+            # ================== STEP 3: Staff confirms the order ==================
+            self.client.force_authenticate(user=self.staff)
+            confirm_response = self.client.post(
+                f'/api/orders/{order_id}/confirm-order/',
+                data=json.dumps({'note': 'Staff confirmed after payment'}),
+                content_type='application/json'
+            )
+            self.assertEqual(confirm_response.status_code, status.HTTP_200_OK)
+
             order.refresh_from_db()
             self.assertEqual(order.status, 'PROCESSING')
-            self.assertTrue(order.is_paid)
             
-            # ================== STEP 3: Create OrderPayment Record ==================
-            payment = OrderPayment.objects.create(
-                order=order,
-                payment_method=order.payment_method,
-                status='PAID',
-                transaction_id='TXN123456',
-                amount=order.total_price,
-            )
-            
+            # ================== STEP 4: Verify payment record updated ==================
+            payment = OrderPayment.objects.get(order=order)
             self.assertEqual(payment.status, 'PAID')
             self.assertEqual(payment.amount, expected_total)
 
     def test_order_with_insufficient_stock_reservation(self):
         """Test tạo order khi stock không đủ"""
         order_data = {
+            'customer_id': self.customer_id,
             'address_id': '550e8400-e29b-41d4-a716-446655440010',
             'payment_method': 'COD',
             'shipping_method': 'EXPRESS',
@@ -188,21 +209,23 @@ class OrderStockReservationIntegrationTest(TestCase):
             ]
         }
 
-        with patch('apps.order.gateways.ProductServiceGateway.create_stock_reservation') as mock_create_res:
+        with patch('apps.order.gateways.ProductServiceGateway.get_product_snapshot') as mock_get_snapshot, \
+             patch('apps.order.gateways.ProductServiceGateway.create_stock_reservation') as mock_create_res:
             
             # Simulate insufficient stock error
+            mock_get_snapshot.return_value = {'id': order_data['items'][0]['product_id'], 'category': {'id': '11111111-1111-1111-1111-111111111111', 'slug': 'cat-a'}}
             mock_create_res.side_effect = Exception(
                 "Insufficient stock. Available: 50, Requested: 1000"
             )
             
             response = self.client.post(
-                '/api/v1/orders/',
+                '/api/orders/',
                 data=json.dumps(order_data),
                 content_type='application/json'
             )
 
             # Order creation should fail
-            self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
             
             # No order should be created
             self.assertEqual(Order.objects.count(), 0)
@@ -212,18 +235,26 @@ class OrderStockReservationIntegrationTest(TestCase):
         
         # First create an order successfully
         order = Order.objects.create(
-            user_id=self.user.id,
+            user_id=self.customer_id,
             total_price=Decimal('500.00'),
             shipping_fee=Decimal('0.00'),
             status='PENDING',
-            payment_method='BANK_TRANSFER',
             shipping_method='STANDARD',
             shipping_address={'address': 'Test Address'},
+        )
+
+        OrderPayment.objects.create(
+            order=order,
+            payment_method='BANK_TRANSFER',
+            status='PENDING',
+            amount=Decimal('500.00'),
         )
         
         OrderItem.objects.create(
             order=order,
             product_id='550e8400-e29b-41d4-a716-446655440100',
+            category_id='11111111-1111-1111-1111-111111111111',
+            category_slug='cat-a',
             quantity=5,
             sales_price=Decimal('100.00'),
         )
@@ -264,6 +295,7 @@ class OrderStockReservationIntegrationTest(TestCase):
     def test_order_with_cod_payment(self):
         """Test tạo order với payment method COD (thanh toán khi nhận hàng)"""
         order_data = {
+            'customer_id': self.customer_id,
             'address_id': '550e8400-e29b-41d4-a716-446655440010',
             'payment_method': 'COD',
             'shipping_method': 'STANDARD',
@@ -276,9 +308,11 @@ class OrderStockReservationIntegrationTest(TestCase):
             ]
         }
 
-        with patch('apps.order.gateways.ProductServiceGateway.create_stock_reservation') as mock_create_res, \
+        with patch('apps.order.gateways.ProductServiceGateway.get_product_snapshot') as mock_get_snapshot, \
+             patch('apps.order.gateways.ProductServiceGateway.create_stock_reservation') as mock_create_res, \
              patch('apps.order.services.call_payment_service_initiate') as mock_payment:
             
+            mock_get_snapshot.return_value = {'id': order_data['items'][0]['product_id'], 'category': {'id': '11111111-1111-1111-1111-111111111111', 'slug': 'cat-a'}}
             mock_create_res.return_value = {
                 'reservation_id': '550e8400-e29b-41d4-a716-446655440200',
                 'product_id': '550e8400-e29b-41d4-a716-446655440100',
@@ -290,7 +324,7 @@ class OrderStockReservationIntegrationTest(TestCase):
             mock_payment.return_value = None  # COD không có payment URL
             
             response = self.client.post(
-                '/api/v1/orders/',
+                '/api/orders/',
                 data=json.dumps(order_data),
                 content_type='application/json'
             )
@@ -301,4 +335,4 @@ class OrderStockReservationIntegrationTest(TestCase):
             # For COD, should have message, no payment_url
             self.assertIn('message', response_data)
             self.assertNotIn('payment_url', response_data)
-            self.assertIn('Thanh toán khi nhận', response_data['message'])
+            self.assertIn('Order placed successfully', response_data['message'])

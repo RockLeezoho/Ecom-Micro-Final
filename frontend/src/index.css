@@ -33,4 +33,12 @@
   .btn-dense {
     @apply px-4 py-2 rounded-md font-semibold text-sm transition-all;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+  }
 }

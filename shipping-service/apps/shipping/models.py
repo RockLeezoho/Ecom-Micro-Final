@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from django.db import models
 
 class ShipmentStatus(models.TextChoices):
@@ -10,16 +11,22 @@ class ShipmentStatus(models.TextChoices):
     RETURNED = 'RETURNED', 'Đã trả hàng'
     FAILED = 'FAILED', 'Giao hàng thất bại'
 
-class ShippingMethod(models.TextChoices):
-    STANDARD = 'STANDARD', 'Giao hàng tiêu chuẩn'
-    EXPRESS = 'EXPRESS', 'Giao hàng hỏa tốc'
-    @property
-    def price(self):
-        prices = {
-            'STANDARD': 15000,
-            'EXPRESS': 30000,
-        }
-        return prices.get(self.value, 0)
+class ShippingMethod(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=20, unique=True, db_index=True)
+    name = models.CharField(max_length=100)
+    fee = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    is_active = models.BooleanField(default=True, db_index=True)
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'shipping_methods'
+        ordering = ['sort_order', 'name']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
 
 class Carrier(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -48,13 +55,12 @@ class Shipment(models.Model):
     )
     
     carrier_shipment_id = models.CharField(
-        max_length=100, blank=True, null=True, verbose_name="ID vận đơn bên đối tác"
+        db_index=True, max_length=100, blank=True, null=True, verbose_name="ID vận đơn bên đối tác"
     )
     
     method = models.CharField(
         max_length=20,
-        choices=ShippingMethod.choices,
-        default=ShippingMethod.STANDARD
+        default='STANDARD'
     )
     
     status = models.CharField(
@@ -89,15 +95,15 @@ class Shipment(models.Model):
         db_table = 'shipments'
 
     def save(self, *args, **kwargs):
-        method_enum = ShippingMethod(self.method)
-        self.shipping_fee = method_enum.price
+        method = ShippingMethod.objects.filter(code__iexact=str(self.method), is_active=True).first()
+        self.shipping_fee = method.fee if method is not None else Decimal('0.00')
         
         super(Shipment, self).save(*args, **kwargs)
 
 class ShipmentLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='logs')
-    status = models.CharField(max_length=50)
+    status = models.CharField(db_index=True, max_length=50)
     location = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
