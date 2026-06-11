@@ -43,27 +43,91 @@ class AIService:
             rag_data = self.engine.retrieve_rag(user_query)
             for pid, score in zip(rag_data['ids'], rag_data['scores']):
                 rag_res[str(pid)] = score
-        # 4. Tổng hợp điểm
-        w1 = getattr(settings, 'W1_LSTM', 0.5)
-        w2 = getattr(settings, 'W2_GRAPH', 0.3)
-        w3 = getattr(settings, 'W3_RAG', 0.2)
-        all_ids = set(lstm_res.keys()) | set(graph_res.keys()) | set(rag_res.keys())
+        # 4. Tổng hợp điểm (Ranking)
+        all_ids = list(set(lstm_res.keys()) | set(graph_res.keys()) | set(rag_res.keys()))
+        
+        meta_dict = {}
+        try:
+            chroma_res = ml_loader.collection.get(ids=all_ids, include=["metadatas"])
+            if chroma_res and chroma_res.get('metadatas'):
+                for i, doc_id in enumerate(chroma_res['ids']):
+                    meta_dict[doc_id] = chroma_res['metadatas'][i]
+        except Exception:
+            pass
+
         final_rank = {}
-        for pid in all_ids:
-            s_lstm = lstm_res.get(pid, 0)
-            s_graph = graph_res.get(pid, 0)
-            s_rag = rag_res.get(pid, 0)
-            score = w1 * s_lstm + w2 * s_graph + w3 * s_rag
-            final_rank[pid] = score
+        if ml_loader.xgboost_ranker is not None:
+            import pandas as pd
+            features_list = []
+            for pid in all_ids:
+                s_lstm = lstm_res.get(pid, 0)
+                s_graph = graph_res.get(pid, 0)
+                s_rag = rag_res.get(pid, 0)
+                meta = meta_dict.get(pid, {})
+                price = meta.get('price', 0.0)
+                stock = meta.get('stock', 0)
+                rating = meta.get('rating', 0.0)
+                viewCount = meta.get('viewCount', 0)
+                
+                features_list.append({
+                    'lstm_score': s_lstm,
+                    'graph_score': s_graph,
+                    'rag_score': s_rag,
+                    'price': price,
+                    'stock': stock,
+                    'rating': rating,
+                    'viewCount': viewCount
+                })
+            if len(features_list) > 0:
+                df_features = pd.DataFrame(features_list)
+                preds = ml_loader.xgboost_ranker.predict_proba(df_features)[:, 1]
+                for i, pid in enumerate(all_ids):
+                    final_rank[pid] = float(preds[i])
+        else:
+            w1 = getattr(settings, 'W1_LSTM', 0.5)
+            w2 = getattr(settings, 'W2_GRAPH', 0.3)
+            w3 = getattr(settings, 'W3_RAG', 0.2)
+            for pid in all_ids:
+                s_lstm = lstm_res.get(pid, 0)
+                s_graph = graph_res.get(pid, 0)
+                s_rag = rag_res.get(pid, 0)
+                score = w1 * s_lstm + w2 * s_graph + w3 * s_rag
+                final_rank[pid] = score
+                
         sorted_ids = sorted(final_rank, key=final_rank.get, reverse=True)
         return sorted_ids[:10]
 
-    async def chatbot_response(self, user_query: str):
+    async def chatbot_response(self, user_query: str, context_product_ids: list[str] = None):
         # 1. Retrieve
-        rag_data = self.engine.retrieve_rag(user_query)
-        if rag_data.get('documents') and len(rag_data['documents']) > 0 and rag_data['documents'][0]:
-            context = " ".join(rag_data['documents'][0]).strip()
-            prod_id = rag_data['ids'][0] if rag_data.get('ids') and len(rag_data['ids']) > 0 else None
+        rag_data = None
+        
+        # Nếu có context_product_ids, lấy trực tiếp thông tin các sản phẩm này làm ngữ cảnh
+        if context_product_ids and len(context_product_ids) > 0:
+            try:
+                # Query ChromaDB by IDs
+                chroma_res = ml_loader.collection.get(ids=context_product_ids, include=["documents", "metadatas"])
+                if chroma_res and chroma_res.get('documents') and len(chroma_res['documents']) > 0:
+                    rag_data = chroma_res
+            except Exception:
+                pass
+                
+        # Nếu không có context hoặc fetch lỗi, dùng RAG semantic search thông thường
+        if not rag_data or not rag_data.get('documents'):
+            rag_data = self.engine.retrieve_rag(user_query)
+            
+        if rag_data and rag_data.get('documents') and len(rag_data['documents']) > 0 and rag_data['documents'][0]:
+            # ChromaDB .get() returns a 1D list for documents, but query() returns a 2D list.
+            # Handle both formats
+            if isinstance(rag_data['documents'][0], list):
+                docs = rag_data['documents'][0]
+                metas = rag_data.get('metadatas', [[]])[0] if rag_data.get('metadatas') else []
+                context = ml_loader._build_context(docs, metas)
+                prod_id = rag_data['ids'][0][0] if rag_data.get('ids') and len(rag_data['ids']) > 0 and len(rag_data['ids'][0]) > 0 else None
+            else:
+                docs = rag_data['documents']
+                metas = rag_data.get('metadatas', []) if rag_data.get('metadatas') else []
+                context = ml_loader._build_context(docs, metas)
+                prod_id = rag_data['ids'][0] if rag_data.get('ids') and len(rag_data['ids']) > 0 else None
         else:
             context = ""
             prod_id = None

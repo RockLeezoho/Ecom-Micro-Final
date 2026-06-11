@@ -5,8 +5,12 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
 import os
+import sys
 import joblib
 from sklearn.preprocessing import LabelEncoder
+from tqdm import tqdm
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 # Tự động xác định thư mục gốc của dự án (ecom-final-micro)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,11 +29,11 @@ print(f"🚀 Huấn luyện trên thiết bị: {device}")
 # ==========================================
 # 2. ĐỌC VÀ CHUẨN BỊ DỮ LIỆU
 # ==========================================
-path_products = os.path.join(TRAIN_ARTIFACTS_DIR, "products.csv")
-path_behavior = os.path.join(TRAIN_ARTIFACTS_DIR, "data_user500.csv")
+path_products = os.path.join(TRAIN_ARTIFACTS_DIR, "real_products.csv")
+path_behavior = os.path.join(TRAIN_ARTIFACTS_DIR, "real_behavior.csv")
 
 if not os.path.exists(path_products) or not os.path.exists(path_behavior):
-    raise FileNotFoundError("❌ Không tìm thấy các file dữ liệu cần thiết! Vui lòng chạy sinh dữ liệu trước bằng generate_premium_data.py")
+    raise FileNotFoundError("❌ Không tìm thấy các file dữ liệu cần thiết! Vui lòng chạy prepare_real_data.py trước")
 
 products_df = pd.read_csv(path_products)
 behavior_df = pd.read_csv(path_behavior)
@@ -63,22 +67,27 @@ WINDOW_SIZE = 15
 sequences = []
 targets = []
 
-# Group interactions by user
-grouped = behavior_df.sort_values("timestamp").groupby("user_id")
+print("Đang mã hóa toàn bộ dữ liệu...")
+behavior_df = behavior_df.sort_values("timestamp")
+behavior_df["prod_seq"] = prod_encoder.transform(behavior_df["product_id"])
+behavior_df["act_seq"] = act_encoder.transform(behavior_df["action"])
+
+print("Đang tạo Sliding Windows...")
+grouped = behavior_df.groupby("user_id")
 
 for user_id, group in grouped:
-    # Mã hóa chuỗi của user sang ID số nguyên
-    prod_seq_mapped = prod_encoder.transform(group["product_id"].tolist())
-    act_seq_mapped = act_encoder.transform(group["action"].tolist())
+    prod_seq_mapped = group["prod_seq"].values
+    act_seq_mapped = group["act_seq"].values
+    n = len(prod_seq_mapped)
     
-    # Tạo sliding window
-    for i in range(len(prod_seq_mapped) - WINDOW_SIZE):
-        # Trích xuất 15 tương tác trước đó làm feature X
+    if n <= WINDOW_SIZE:
+        continue
+        
+    for i in range(n - WINDOW_SIZE):
         x_p = prod_seq_mapped[i : i + WINDOW_SIZE]
         x_a = act_seq_mapped[i : i + WINDOW_SIZE]
         x_combined = np.stack((x_p, x_a), axis=1) # (15, 2)
         
-        # Tương tác thứ 16 làm nhãn y (chỉ dự đoán product_id)
         y = prod_seq_mapped[i + WINDOW_SIZE]
         
         sequences.append(x_combined)
@@ -105,8 +114,8 @@ split_idx = int(len(X) * 0.8)
 train_dataset = BehaviorDataset(X[:split_idx], y[:split_idx])
 val_dataset = BehaviorDataset(X[split_idx:], y[split_idx:])
 
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=1024, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=1024, shuffle=False)
 
 # ==========================================
 # 4. ĐỊNH NGHĨA KIẾN TRÚC MÔ HÌNH BEHAVIORLSTM
@@ -147,8 +156,15 @@ model = BehaviorLSTM(
     num_acts=num_acts
 ).to(device)
 
+model_path = os.path.join(TRAIN_MODELS_DIR, "best_behavior_lstm.pth")
+if os.path.exists(model_path):
+    print(f"🔄 Đã tìm thấy file trọng số cũ tại {model_path}.")
+    print("Đang nạp trọng số để tiếp tục huấn luyện (Resume Training)...")
+    model.load_state_dict(torch.load(model_path, map_location=device))
+
+
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+optimizer = optim.Adam(model.parameters(), lr=0.005, weight_decay=1e-5)
 
 # ==========================================
 # 5. HUẤN LUYỆN MÔ HÌNH (TRAINING LOOP)
@@ -160,7 +176,9 @@ print("\n🏋️ Bắt đầu huấn luyện...")
 for epoch in range(1, num_epochs + 1):
     model.train()
     train_loss = 0.0
-    for batch_x, batch_y in train_loader:
+    
+    pbar = tqdm(train_loader, desc=f"Epoch {epoch:02d}/{num_epochs:02d} [Train]")
+    for batch_x, batch_y in pbar:
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
         
         optimizer.zero_grad()
@@ -170,6 +188,7 @@ for epoch in range(1, num_epochs + 1):
         optimizer.step()
         
         train_loss += loss.item() * batch_x.size(0)
+        pbar.set_postfix({'loss': f"{loss.item():.4f}"})
         
     train_loss /= len(train_loader.dataset)
     
@@ -183,7 +202,8 @@ for epoch in range(1, num_epochs + 1):
     mrr_sum = 0.0
     total = 0
     with torch.no_grad():
-        for batch_x, batch_y in val_loader:
+        val_pbar = tqdm(val_loader, desc=f"Epoch {epoch:02d}/{num_epochs:02d} [Val]")
+        for batch_x, batch_y in val_pbar:
             batch_x, batch_y = batch_x.to(device), batch_y.to(device)
             outputs = model(batch_x)
             loss = criterion(outputs, batch_y)

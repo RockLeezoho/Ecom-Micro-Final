@@ -211,7 +211,7 @@ services:
     #   neo4j:
     #     condition: service_healthy
     command: >
-      gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 180
+      gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 600
       app.main:app
       --bind 0.0.0.0:8002
     restart: unless-stopped
@@ -219,12 +219,12 @@ services:
       test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health').getcode()==200 else 1)\""]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 10
+      start_period: 300s
     deploy:
       resources:
         limits:
-          memory: 1.5G
+          memory: 2.5G
         reservations:
           memory: 512M
     networks:

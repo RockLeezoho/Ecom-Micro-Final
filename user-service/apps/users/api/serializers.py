@@ -123,7 +123,6 @@ class CustomerUpdateSerializer(serializers.ModelSerializer, CommonUserFieldsMixi
             'height': {'allow_null': True, 'required': False},
             'weight': {'allow_null': True, 'required': False},
             'foot_length': {'allow_null': True, 'required': False},
-            'avatar_url': {'read_only': True},
         }
 
 
@@ -237,7 +236,6 @@ class CustomerAdminCreateSerializer(
             'weight': {'allow_null': True, 'required': False},
             'foot_length': {'allow_null': True, 'required': False},
             'is_active': {'required': False},
-            'avatar_url': {'read_only': True},
         }
 
 
@@ -263,5 +261,4 @@ class CustomerAdminUpdateSerializer(
             'weight': {'allow_null': True, 'required': False},
             'foot_length': {'allow_null': True, 'required': False},
             'is_active': {'required': False},
-            'avatar_url': {'read_only': True},
         }

@@ -50,7 +50,7 @@ async def post_chatbot(request: ChatRequest):
 @router.post("/chat")
 async def post_chat(request: FrontendChatRequest):
     try:
-        answer, related_ids = await ai_service.chatbot_response(request.user_query)
+        answer, related_ids = await ai_service.chatbot_response(request.user_query, request.context_product_ids)
     except Exception:
         answer, related_ids = "Xin loi, he thong AI dang bao tri.", []
     return {"answer": answer, "product_ids": related_ids}

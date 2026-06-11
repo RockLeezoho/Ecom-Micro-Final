@@ -17,3 +17,4 @@ class RecommendRequest(BaseModel):
 
 class FrontendChatRequest(BaseModel):
     user_query: str
+    context_product_ids: Optional[List[str]] = None

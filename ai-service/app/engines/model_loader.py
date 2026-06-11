@@ -160,6 +160,20 @@ class ModelLoader:
         except Exception as e:
             logger.error(f"Lỗi khởi tạo AI Engines: {str(e)}")
             raise e
+            
+        # F. KHỞI TẠO XGBOOST RANKER
+        import xgboost as xgb
+        self.xgboost_ranker = None
+        try:
+            ranker_path = os.path.join(settings.BASE_DIR, "models", "xgboost_ranker.json")
+            if os.path.exists(ranker_path):
+                self.xgboost_ranker = xgb.XGBClassifier()
+                self.xgboost_ranker.load_model(ranker_path)
+                logger.info(f"Đã load XGBoost Ranker từ {ranker_path}")
+            else:
+                logger.warning(f"Không tìm thấy mô hình XGBoost tại {ranker_path}")
+        except Exception as e:
+            logger.error(f"Lỗi load XGBoost Ranker: {str(e)}")
 
     def get_recommendation(self, user_id: str):
         """
@@ -354,9 +368,26 @@ class ModelLoader:
             meta = metadatas[idx] if idx < len(metadatas) else {}
             name = meta.get("name") or meta.get("title") or ""
             category = meta.get("category") or ""
+            price = meta.get("price", 0)
+            brand = meta.get("brand", "")
+            model_info = meta.get("model", "")
+            color = meta.get("color", "")
+            material = meta.get("material", "")
+            condition = meta.get("condition", "")
+            
             snippet = doc.strip().replace("\n", " ") if doc else ""
-            if name or category or snippet:
-                context_parts.append(" | ".join(part for part in [name, category, snippet] if part))
+            
+            extra_info = []
+            if price: extra_info.append(f"Giá: {price}")
+            if brand: extra_info.append(f"Hãng: {brand}")
+            if model_info: extra_info.append(f"Model: {model_info}")
+            if color: extra_info.append(f"Màu: {color}")
+            if material: extra_info.append(f"Chất liệu: {material}")
+            if condition: extra_info.append(f"Tình trạng: {condition}")
+            
+            extra_str = " | ".join(extra_info)
+            if name or category or snippet or extra_str:
+                context_parts.append(" | ".join(part for part in [name, category, snippet, extra_str] if part))
         return "\n".join(context_parts)
 
     def generate_llm_response(self, system_prompt: str, user_prompt: str) -> str | None:
@@ -370,7 +401,7 @@ class ModelLoader:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
-            max_tokens=512,
+            max_tokens=1024,
         )
         message = response.choices[0].message.content
         if not message:
@@ -379,8 +410,9 @@ class ModelLoader:
         # Strip <think>...</think> reasoning blocks (produced by Qwen3 and other
         # chain-of-thought models). The flag re.DOTALL makes '.' match newlines too.
         import re
-        cleaned = re.sub(r"<think>.*?</think>", "", message, flags=re.DOTALL)
-        cleaned = cleaned.strip()
+        message = re.sub(r"<think>.*?</think>", "", message, flags=re.DOTALL)
+        message = re.sub(r"<think>.*", "", message, flags=re.DOTALL)
+        cleaned = message.strip()
         return cleaned if cleaned else None
     def close(self):
         """Đóng các kết nối khi dừng service"""

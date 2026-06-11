@@ -37,12 +37,13 @@ export const recommendProducts = async (
   user_id: string,
   history_prods: string[] = [],
   history_acts: string[] = [],
-  user_query: string = ""
+  user_query: string = "",
+  category_key: string = ""
 ) => {
   const res = await fetch("/api/ai/recommend", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id, history_prods, history_acts, user_query }),
+    body: JSON.stringify({ user_id, history_prods, history_acts, user_query, category_key }),
   });
   if (!res.ok) throw new Error("AI Service error");
   const data: AiRecommendResponse = await res.json();
@@ -51,11 +52,11 @@ export const recommendProducts = async (
   return { product_ids: productIds, products: productDetails };
 };
 
-export const chatWithAIService = async (user_query: string) => {
+export const chatWithAIService = async (user_query: string, context_product_ids?: string[]) => {
   const res = await fetch("/api/ai/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_query }),
+    body: JSON.stringify({ user_query, context_product_ids }),
   });
   if (!res.ok) throw new Error("AI Service error");
   const data: AiChatResponse = await res.json();

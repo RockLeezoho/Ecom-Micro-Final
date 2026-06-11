@@ -81,8 +81,12 @@ const ChatAI: React.FC = () => {
     setIsLoading(true);
 
     try {
+      // Tìm products của tin nhắn model cuối cùng
+      const lastModelMessage = [...messages].reverse().find(m => m.role === 'model' && m.products && m.products.length > 0);
+      const contextProductIds = lastModelMessage?.products?.map(p => p.id) || undefined;
+
       // Gọi AI Service qua API Gateway
-      const { answer, products } = await chatWithAIService(userMessage.text);
+      const { answer, products } = await chatWithAIService(userMessage.text, contextProductIds);
       const modelMessageId = (Date.now() + 1).toString();
       setMessages(prev => [...prev, { id: modelMessageId, role: 'model', text: answer, products }]);
     } catch (error) {

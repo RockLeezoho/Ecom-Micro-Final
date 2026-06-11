@@ -330,7 +330,8 @@ function AppContent() {
             currentUser?.id || "guest",
             [],
             [],
-            `Goi y san pham cho danh muc ${categoryKey}`
+            `Goi y san pham cho danh muc ${categoryKey}`,
+            categoryKey
           );
           if (Array.isArray(aiRes.products) && aiRes.products.length > 0) {
             aiRecommended = aiRes.products;

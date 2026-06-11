@@ -115,7 +115,13 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({ currentUser, 
         avatarFile || undefined
       );
 
-      const nextAvatarUrl = updated.avatarUrl || selectedAvatarPreview || form.avatar_url || null;
+      let nextAvatarUrl = updated.avatarUrl || selectedAvatarPreview || form.avatar_url || null;
+      if (nextAvatarUrl && avatarFile) {
+        // If a new avatar file was uploaded, the URL might be the same but the image changed on the server.
+        // Append a timestamp to bypass browser cache.
+        const separator = nextAvatarUrl.includes('?') ? '&' : '?';
+        nextAvatarUrl = `${nextAvatarUrl}${separator}t=${Date.now()}`;
+      }
       const nextUser = { ...updated, avatarUrl: nextAvatarUrl };
 
       currentAvatarUrlRef.current = nextAvatarUrl;

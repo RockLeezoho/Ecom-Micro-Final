@@ -6,7 +6,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-PRODUCTS_CSV = "/app/train-ai/artifacts/products.csv"
+PRODUCTS_CSV = "/app/artifacts/products.csv"
 CHROMA_PATH = "./chromadb/"
 
 def main():
@@ -41,7 +41,19 @@ def main():
         
         text = f"{name} - Danh mục: {category}"
         docs.append(text)
-        metadatas.append({"name": name, "category": category})
+        metadatas.append({
+            "name": name, 
+            "category": category,
+            "price": float(row.get('price', 0)) if not pd.isna(row.get('price')) else 0.0,
+            "stock": int(row.get('stock', 0)) if not pd.isna(row.get('stock')) else 0,
+            "rating": float(row.get('rating', 0)) if not pd.isna(row.get('rating')) else 0.0,
+            "viewCount": int(row.get('viewCount', 0)) if not pd.isna(row.get('viewCount')) else 0,
+            "brand": str(row.get('brand', '')) if not pd.isna(row.get('brand')) else "",
+            "model": str(row.get('model', '')) if not pd.isna(row.get('model')) else "",
+            "color": str(row.get('color', '')) if not pd.isna(row.get('color')) else "",
+            "material": str(row.get('material', '')) if not pd.isna(row.get('material')) else "",
+            "condition": str(row.get('condition', '')) if not pd.isna(row.get('condition')) else ""
+        })
         ids.append(pid)
         
     print(f"Bắt đầu nhúng {len(docs)} sản phẩm vào ChromaDB...")
