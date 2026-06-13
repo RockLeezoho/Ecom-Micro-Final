@@ -111,8 +111,18 @@ const ProductCard: React.FC<{
       >
         {isFavorite ? <Heart fill="#ef4444" color="#ef4444" size={18} /> : <Heart size={18} color="#888" />}
       </button>
-      <div className="h-[100px] bg-[#F7FAFC] rounded flex items-center justify-center text-3xl">
-        {getProductIcon(product.category)}
+      <div 
+        className="h-[100px] bg-[#F7FAFC] rounded flex items-center justify-center overflow-hidden cursor-pointer"
+        onClick={() => onProductClick(product)}
+      >
+        <img 
+          src={product.image} 
+          alt={product.name} 
+          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110" 
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${product.id}/400/400`;
+          }}
+        />
       </div>
       <div className="flex flex-col gap-1 flex-1">
         <h3
@@ -188,10 +198,10 @@ const HomeView: React.FC<HomeViewProps> = ({ products, homepageData, homepageLoa
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(0);
   const [attributeFilter, setAttributeFilter] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   const homepageProducts = homepageData || null;
-  const newProducts = homepageProducts?.new_arrivals || [];
-  const suggested = homepageProducts?.recommended || [];
+  
   const allAvailableProducts = [
     ...products,
     ...(homepageProducts?.new_arrivals || []),
@@ -200,14 +210,12 @@ const HomeView: React.FC<HomeViewProps> = ({ products, homepageData, homepageLoa
     ...(homepageProducts?.popular || [])
   ];
 
-  const uniqueFavoritesMap = new Map<string, Product>();
-  allAvailableProducts.forEach(p => {
-    if (favoriteIds.includes(p.id) && p.category === activeTab) {
-      uniqueFavoritesMap.set(p.id, p);
-    }
-  });
-  const favorites = Array.from(uniqueFavoritesMap.values());
-  const bestSelling = homepageProducts?.best_sellers || [];
+  const uniqueProductsMap = new Map<string, Product>();
+  allAvailableProducts.forEach(p => uniqueProductsMap.set(p.id, p));
+  const uniqueProducts = Array.from(uniqueProductsMap.values());
+
+  const newProducts = uniqueProducts.filter(p => (homepageProducts?.new_arrivals || []).some(n => n.id === p.id));
+  const suggested = uniqueProducts.filter(p => (homepageProducts?.recommended || []).some(n => n.id === p.id));
 
   // Sub-category logic
   React.useEffect(() => {
@@ -232,36 +240,70 @@ const HomeView: React.FC<HomeViewProps> = ({ products, homepageData, homepageLoa
 
   const filteredNewProducts = applySubFilter(newProducts);
   const filteredSuggested = applySubFilter(suggested);
-  const filteredBestSelling = applySubFilter(bestSelling);
-  const filteredFavorites = applySubFilter(favorites);
 
-  const Section = ({ title, products }: { title: string; products: Product[] }) => (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-bold text-[#2D3748] uppercase tracking-wider">{title}</h2>
-        <span className="text-xs text-[#718096]">Đang hiển thị {products.length} sản phẩm</span>
+  // "Được yêu thích": danh sách sản phẩm có rating từ 4.9 đến 5.0, giảm dần rating
+  const popularProductsRaw = uniqueProducts
+    .filter(p => p.category === activeTab && p.rating >= 4.9 && p.rating <= 5.0)
+    .sort((a, b) => b.rating - a.rating);
+  const filteredFavorites = applySubFilter(popularProductsRaw);
+
+  // "Sản phẩm bán chạy": status = SELLING, desc rating, exclude already shown
+  const existingIds = new Set([
+    ...filteredNewProducts.map(p => p.id),
+    ...filteredSuggested.map(p => p.id),
+    ...filteredFavorites.map(p => p.id)
+  ]);
+
+  const bestSellingRaw = uniqueProducts
+    .filter(p => p.category === activeTab && p.status === 'SELLING' && !existingIds.has(p.id))
+    .sort((a, b) => b.rating - a.rating);
+  const filteredBestSelling = applySubFilter(bestSellingRaw);
+
+  const Section = ({ title, products }: { title: string; products: Product[] }) => {
+    const isExpanded = expandedSections[title] || false;
+    const visibleProducts = isExpanded ? products : products.slice(0, 10);
+    const hasMore = products.length > 10;
+
+    return (
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-[#2D3748] uppercase tracking-wider">{title}</h2>
+          <span className="text-xs text-[#718096]">Đang hiển thị {visibleProducts.length} {products.length > 10 ? `/ ${products.length}` : ''} sản phẩm</span>
+        </div>
+        {products.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {visibleProducts.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onProductClick={onProductClick}
+                  onAddToCart={onAddToCart}
+                  onBuyNow={onBuyNow}
+                  favoriteIds={favoriteIds}
+                  toggleFavorite={toggleFavorite}
+                />
+              ))}
+            </div>
+            {hasMore && !isExpanded && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => setExpandedSections(prev => ({ ...prev, [title]: true }))}
+                  className="px-6 py-2 bg-gray-100 text-primary font-semibold rounded-full hover:bg-primary-light transition-colors text-sm"
+                >
+                  Xem thêm sản phẩm
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="bg-white rounded-lg py-8 text-center border border-border-theme border-dashed">
+            <p className="text-gray-400 text-xs font-medium italic">Không có sản phẩm nào trong mục này.</p>
+          </div>
+        )}
       </div>
-      {products.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {products.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              onProductClick={onProductClick}
-              onAddToCart={onAddToCart}
-              onBuyNow={onBuyNow}
-              favoriteIds={favoriteIds}
-              toggleFavorite={toggleFavorite}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg py-8 text-center border border-border-theme border-dashed">
-          <p className="text-gray-400 text-xs font-medium italic">Không có sản phẩm nào trong mục này.</p>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   const LoadingSection = ({ title }: { title: string }) => (
     <div className="mb-8 animate-pulse">

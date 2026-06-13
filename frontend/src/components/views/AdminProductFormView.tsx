@@ -24,7 +24,7 @@ interface AdminProductFormProps {
 }
 
 const AdminProductFormView: React.FC<AdminProductFormProps> = ({ product, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<Partial<Product & { status: ProductStatus }>>(product || {
+  const [formData, setFormData] = useState<Partial<Product & { status: ProductStatus, imageFile?: File }>>(product || {
     name: '',
     price: 0,
     category: 'sach-luu-tru',
@@ -35,6 +35,12 @@ const AdminProductFormView: React.FC<AdminProductFormProps> = ({ product, onSave
     status: 'NEW', // Mặc định là mới
     image: 'https://picsum.photos/seed/newproduct/400/400'
   });
+
+  React.useEffect(() => {
+    if (product) {
+      setFormData((prev) => ({ ...prev, ...product }));
+    }
+  }, [product]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,14 +226,29 @@ const AdminProductFormView: React.FC<AdminProductFormProps> = ({ product, onSave
                   <>
                     <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button type="button" onClick={() => setFormData({...formData, image: ''})} className="p-2 bg-white rounded-full text-red-500 hover:bg-red-50 transition-colors"><X size={20} /></button>
+                      <button type="button" onClick={() => setFormData({...formData, image: '', imageFile: undefined})} className="p-2 bg-white rounded-full text-red-500 hover:bg-red-50 transition-colors"><X size={20} /></button>
                     </div>
                   </>
                 ) : (
-                  <div className="text-center p-6 flex flex-col items-center justify-center">
+                  <label className="text-center p-6 flex flex-col items-center justify-center cursor-pointer w-full h-full">
                     <div className="p-3 bg-primary/10 rounded-full text-primary mb-3"><ImageIcon size={28} /></div>
                     <p className="text-xs font-bold text-gray-500 uppercase">Tải lên hình ảnh</p>
-                  </div>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setFormData({ 
+                            ...formData, 
+                            imageFile: file,
+                            image: URL.createObjectURL(file) 
+                          });
+                        }
+                      }} 
+                    />
+                  </label>
                 )}
               </div>
               <input
@@ -235,7 +256,7 @@ const AdminProductFormView: React.FC<AdminProductFormProps> = ({ product, onSave
                   value={formData.image}
                   onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                   className="w-full bg-white border border-gray-200 rounded-lg py-2 px-3 text-[11px] font-medium text-gray-400 focus:ring-1 focus:ring-primary outline-none"
-                  placeholder="URL hình ảnh..."
+                  placeholder="Hoặc nhập URL hình ảnh..."
               />
             </div>
 

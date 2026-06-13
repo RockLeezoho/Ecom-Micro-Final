@@ -12,6 +12,9 @@ services:
       - ../frontend/.env
     ports:
       - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
     depends_on:
       api-gateway:
         condition: service_healthy
@@ -92,7 +95,7 @@ services:
       - ../user-service:/app
     environment:
       - DJANGO_DEBUG=1
-      - USER_SEED_ON_STARTUP=0
+      - USER_SEED_ON_STARTUP=1
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health/').getcode()==200 else 1)\""]
       interval: 10s
@@ -146,6 +149,7 @@ services:
       - "8003:8003"
     environment:
       - REDIS_URL=redis://redis:6379/1
+      - PRODUCT_SEED_ON_STARTUP=1
     depends_on:
       product-db:
         condition: service_healthy
@@ -210,10 +214,10 @@ services:
     # depends_on:
     #   neo4j:
     #     condition: service_healthy
+    environment:
+      - AI_SEED_ON_STARTUP=1
     command: >
-      gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 600
-      app.main:app
-      --bind 0.0.0.0:8002
+      sh -c "if [ \"$$AI_SEED_ON_STARTUP\" = \"1\" ]; then echo 'Seeding AI databases...'; python sync_chroma.py > /tmp/chroma-seed.log 2>&1; python scripts/create_kb_graph.py > /tmp/neo4j-seed.log 2>&1; fi; exec gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 600 app.main:app --bind 0.0.0.0:8002"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health').getcode()==200 else 1)\""]
@@ -331,6 +335,7 @@ services:
       - ../order-service/.env
     environment:
       - SHIPPING_SERVICE_URL=http://shipping-service:8007/api
+      - ORDER_SEED_ON_STARTUP=1
     ports:
       - "8005:8005"
     depends_on:
@@ -443,6 +448,8 @@ services:
     container_name: shipping-service
     env_file:
       - ../shipping-service/.env
+    environment:
+      - SHIPPING_SEED_ON_STARTUP=1
     ports:
       - "8007:8007"
     depends_on:

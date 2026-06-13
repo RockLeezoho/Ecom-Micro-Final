@@ -3,7 +3,6 @@ dist/
 build/
 .cursor/
 .github/
-GEMINI.md
 bashrc
 Makefile
 gitignore

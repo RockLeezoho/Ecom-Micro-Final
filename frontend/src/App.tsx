@@ -358,7 +358,7 @@ function AppContent() {
     };
 
     loadHomepageData();
-  }, [location.search, categories, currentUser?.id]);
+  }, [location.pathname, location.search, categories, currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -623,18 +623,36 @@ function AppContent() {
 
   // Management Handlers
   const saveProduct = async (product: Partial<Product>) => {
-    const resolvedCategoryId =
-      product.categoryId || categories.find((category) => category.slug === product.category)?.id || product.category;
-    const payload = { ...product, categoryId: resolvedCategoryId };
+    try {
+      let resolvedCategoryId = product.categoryId;
+      const rootCat = categories.find((c) => c.slug === product.category);
+      if (rootCat) {
+        if (product.subCategory) {
+          const subCat = rootCat.children?.find(
+            (c) => c.name.toLowerCase() === product.subCategory?.toLowerCase() || c.slug === product.subCategory
+          );
+          if (subCat) resolvedCategoryId = subCat.id;
+          else resolvedCategoryId = rootCat.id;
+        } else {
+          resolvedCategoryId = rootCat.id;
+        }
+      }
+      if (!resolvedCategoryId) resolvedCategoryId = product.category;
+      const payload = { ...product, categoryId: resolvedCategoryId };
 
-    if (product.id) {
-      await updateAdminProduct(product.id, payload);
-    } else {
-      await createAdminProduct(payload);
+      if (product.id) {
+        await updateAdminProduct(product.id, payload);
+      } else {
+        await createAdminProduct(payload);
+      }
+      setProducts(await fetchProducts().catch(() => products));
+      setStaffPortalRefreshVersion((value) => value + 1);
+      showToast({ tone: 'success', title: 'Lưu sản phẩm thành công' });
+      navigate('/portal/staff/products');
+    } catch (error) {
+      console.error(error);
+      showToast({ tone: 'error', title: 'Lỗi khi lưu sản phẩm', description: 'Vui lòng kiểm tra lại dữ liệu và thử lại.' });
     }
-    setProducts(await fetchProducts().catch(() => products));
-    setStaffPortalRefreshVersion((value) => value + 1);
-    navigate('/portal/staff/products');
   };
 
   const deleteProduct = async (id: string) => {
@@ -779,6 +797,7 @@ function AppContent() {
           currentUser={currentUser}
           cart={cart}
           handleLogout={handleLogout}
+          categories={categories}
         />
       } />
       <Route path="/cart" element={
@@ -850,6 +869,7 @@ function AppContent() {
           currentUser={currentUser}
           cart={cart}
           handleLogout={handleLogout}
+          categories={categories}
         />
       } />
       <Route path="/review/:productId" element={
@@ -858,6 +878,7 @@ function AppContent() {
           currentUser={currentUser}
           cart={cart}
           handleLogout={handleLogout}
+          categories={categories}
         />
       } />
       <Route path="/news" element={
@@ -1108,13 +1129,14 @@ function AdminPortalShell({
 }
 
 // Wrappers to handle params logic within App.tsx context
-function ProductDetailViewWrapper({ products, handleAddToCart, handleBuyNow, selectSingleCartItem, currentUser, cart, handleLogout }: any) {
+function ProductDetailViewWrapper({ products, handleAddToCart, handleBuyNow, selectSingleCartItem, currentUser, cart, handleLogout, categories }: any) {
   const { id } = useParams();
   const navigate = useNavigate();
+  console.log('[ProductDetailViewWrapper] Rendered', { id, productsCount: products?.length, categoriesCount: categories?.length });
   const product = products.find((p: any) => p.id === id);
   if (!product) return <Navigate to="/" replace />;
   return (
-    <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout}>
+    <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
       <ProductDetailView
         product={product}
         onBack={() => navigate('/')}
@@ -1126,12 +1148,12 @@ function ProductDetailViewWrapper({ products, handleAddToCart, handleBuyNow, sel
   );
 }
 
-function OrderDetailsViewWrapper({ orders, products, currentUser, cart, handleLogout }: any) {
+function OrderDetailsViewWrapper({ orders, products, currentUser, cart, handleLogout, categories }: any) {
   const { id } = useParams();
   const navigate = useNavigate();
   if (!id) return <Navigate to="/orders" replace />;
   return (
-    <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout}>
+    <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
       <OrderDetailsView
         orderId={id}
         onBack={() => navigate('/orders')}
@@ -1141,13 +1163,13 @@ function OrderDetailsViewWrapper({ orders, products, currentUser, cart, handleLo
   );
 }
 
-function ReviewViewWrapper({ products, currentUser, cart, handleLogout }: any) {
+function ReviewViewWrapper({ products, currentUser, cart, handleLogout, categories }: any) {
   const { productId } = useParams();
   const navigate = useNavigate();
   const product = products.find((p: any) => p.id === productId);
   if (!product) return <Navigate to="/orders" replace />;
   return (
-    <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout}>
+    <CustomerLayout currentUser={currentUser} cart={cart} onLogout={handleLogout} categories={categories}>
       <ReviewView product={product} onBack={() => navigate('/orders')} onSubmit={() => navigate('/orders')} />
     </CustomerLayout>
   );

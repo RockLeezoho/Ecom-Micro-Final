@@ -17,9 +17,21 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image_url', 'public_id', 'is_avatar', 'created_at']
         read_only_fields = ['id', 'image_url', 'public_id', 'created_at']
 
+class CategoryRelatedField(serializers.PrimaryKeyRelatedField):
+    def to_internal_value(self, data):
+        try:
+            import uuid
+            uuid.UUID(str(data))
+            return super().to_internal_value(data)
+        except ValueError:
+            try:
+                return self.get_queryset().get(slug=data)
+            except self.get_queryset().model.DoesNotExist:
+                raise serializers.ValidationError(f"Invalid pk or slug '{data}' - object does not exist.")
+
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, required=False, read_only=True)
-    category = serializers.PrimaryKeyRelatedField(queryset=CategoryModel.objects.all())
+    category = CategoryRelatedField(queryset=CategoryModel.objects.all())
 
     class Meta:
         model = ProductModel

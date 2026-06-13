@@ -98,49 +98,46 @@ class AIService:
         return sorted_ids[:10]
 
     async def chatbot_response(self, user_query: str, context_product_ids: list[str] = None):
-        # 1. Retrieve
-        rag_data = None
+        # 1. Luôn dùng RAG semantic search để tìm sản phẩm liên quan đến câu hỏi hiện tại
+        rag_data = self.engine.retrieve_rag(user_query)
+        docs = []
+        metas = []
+        prod_ids = []
         
-        # Nếu có context_product_ids, lấy trực tiếp thông tin các sản phẩm này làm ngữ cảnh
+        if rag_data and rag_data.get('documents') and len(rag_data['documents']) > 0 and rag_data['documents'][0]:
+            if isinstance(rag_data['documents'][0], list):
+                docs.extend(rag_data['documents'][0])
+                metas.extend(rag_data.get('metadatas', [[]])[0] if rag_data.get('metadatas') else [])
+                prod_ids.extend(rag_data['ids'][0][:5] if rag_data.get('ids') and len(rag_data['ids']) > 0 else [])
+            else:
+                docs.extend(rag_data['documents'])
+                metas.extend(rag_data.get('metadatas', []) if rag_data.get('metadatas') else [])
+                prod_ids.extend(rag_data['ids'][:5] if rag_data.get('ids') else [])
+        
+        # Nếu có context_product_ids từ lịch sử chat, lấy thêm để làm ngữ cảnh phụ (nếu user hỏi tiếp về chúng)
         if context_product_ids and len(context_product_ids) > 0:
             try:
-                # Query ChromaDB by IDs
-                chroma_res = ml_loader.collection.get(ids=context_product_ids, include=["documents", "metadatas"])
-                if chroma_res and chroma_res.get('documents') and len(chroma_res['documents']) > 0:
-                    rag_data = chroma_res
+                new_ids = [pid for pid in context_product_ids if pid not in prod_ids]
+                if new_ids:
+                    chroma_res = ml_loader.collection.get(ids=new_ids, include=["documents", "metadatas"])
+                    if chroma_res and chroma_res.get('documents') and len(chroma_res['documents']) > 0:
+                        docs.extend(chroma_res['documents'])
+                        metas.extend(chroma_res.get('metadatas', []))
+                        prod_ids.extend(chroma_res['ids'])
             except Exception:
                 pass
                 
-        # Nếu không có context hoặc fetch lỗi, dùng RAG semantic search thông thường
-        if not rag_data or not rag_data.get('documents'):
-            rag_data = self.engine.retrieve_rag(user_query)
-            
-        if rag_data and rag_data.get('documents') and len(rag_data['documents']) > 0 and rag_data['documents'][0]:
-            # ChromaDB .get() returns a 1D list for documents, but query() returns a 2D list.
-            # Handle both formats
-            if isinstance(rag_data['documents'][0], list):
-                docs = rag_data['documents'][0]
-                metas = rag_data.get('metadatas', [[]])[0] if rag_data.get('metadatas') else []
-                context = ml_loader._build_context(docs, metas)
-                prod_id = rag_data['ids'][0][0] if rag_data.get('ids') and len(rag_data['ids']) > 0 and len(rag_data['ids'][0]) > 0 else None
-            else:
-                docs = rag_data['documents']
-                metas = rag_data.get('metadatas', []) if rag_data.get('metadatas') else []
-                context = ml_loader._build_context(docs, metas)
-                prod_id = rag_data['ids'][0] if rag_data.get('ids') and len(rag_data['ids']) > 0 else None
-        else:
-            context = ""
-            prod_id = None
+        context = ml_loader._build_context(docs, metas) if docs else ""
 
         system_prompt = (
-            "Bạn là trợ lý mua sắm của cửa hàng. "
+            "Bạn là nhân viên tư vấn bán hàng nhiệt tình và khéo léo của BECShop. "
             "Quy tắc bắt buộc:\n"
-            "1. LUÔN trả lời bằng tiếng Việt, không dùng ngôn ngữ khác.\n"
-            "2. CHỈ gợi ý các sản phẩm có trong PHẦN NGỮ CẢNH được cung cấp. "
-            "TUYỆT ĐỐI KHÔNG được bịa đặt, suy diễn hoặc đề xuất sản phẩm không có trong ngữ cảnh.\n"
-            "3. Nếu ngữ cảnh không có sản phẩm liên quan, hãy trả lời: "
-            "'Xin lỗi, tôi chưa tìm thấy sản phẩm phù hợp trong hệ thống. Bạn có thể thử từ khóa khác.'\n"
-            "4. Trả lời ngắn gọn, thân thiện, không thêm thông tin ngoài ngữ cảnh."
+            "1. LUÔN trả lời bằng tiếng Việt, giọng điệu thân thiện, tự nhiên như người thật đang tư vấn.\n"
+            "2. CHỈ giới thiệu các sản phẩm CÓ TRONG PHẦN NGỮ CẢNH. Không bịa đặt sản phẩm ngoài hệ thống.\n"
+            "3. Nếu khách hỏi một sản phẩm KHÔNG CÓ trong ngữ cảnh (chẳng hạn khách hỏi 'Điện thoại Apple' nhưng ngữ cảnh chỉ có 'Điện thoại Samsung'), "
+            "đừng trả lời cứng nhắc là 'lỗi hệ thống'. Hãy khéo léo xin lỗi khách rằng cửa hàng đang tạm hết hàng hoặc ngừng kinh doanh sản phẩm đó, "
+            "VÀ NGAY LẬP TỨC gợi ý các sản phẩm có trong ngữ cảnh như một sự thay thế hấp dẫn.\n"
+            "4. Trả lời ngắn gọn, súc tích (dưới 4 câu)."
         )
         if context:
             user_prompt = (
@@ -157,8 +154,8 @@ class AIService:
         if llm_answer:
             answer = llm_answer
         else:
-            answer = "Xin lỗi, tôi chưa tìm thấy sản phẩm phù hợp trong hệ thống. Bạn có thể thử từ khóa khác."
+            answer = "Dạ hiện tại bên em đang tạm hết món này mất rồi ạ. Anh/chị có muốn tham khảo thêm các mẫu khác đang bán chạy ở shop không ạ?"
 
-        return answer, [str(prod_id)] if prod_id is not None else []
+        return answer, [str(pid) for pid in prod_ids]
 
 # python -m tests.test_ai_service

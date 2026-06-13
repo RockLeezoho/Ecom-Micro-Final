@@ -442,7 +442,7 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, currentUser, 
           {children}
         </div>
         <Footer />
-        <ChatAI />
+        <ChatAI currentUser={currentUser} />
       </main>
     </div>
   );

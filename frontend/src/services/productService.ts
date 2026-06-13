@@ -158,7 +158,10 @@ export const fetchProducts = async (): Promise<Product[]> => {
   while (true) {
     const url = `/api/products/list/?page_size=${pageSize}&page=${page}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Products fetch failed: ${res.status}`);
+    if (!res.ok) {
+      if (res.status === 404) break; // Out of bounds page, stop fetching
+      throw new Error(`Products fetch failed: ${res.status}`);
+    }
     const payload = await res.json();
 
     const rows = Array.isArray(payload) ? payload : Array.isArray(payload?.results) ? payload.results : [];
@@ -274,7 +277,7 @@ export const fetchCategories = async (): Promise<Category[]> => {
     const res = await fetch("/api/categories/all/");
     if (!res.ok) throw new Error("Categories fetch error");
     const data = await res.json();
-    return Array.isArray(data?.data) ? data.data : [];
+    return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
   } catch {
     return [];
   }
