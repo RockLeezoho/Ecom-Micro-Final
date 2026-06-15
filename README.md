@@ -99,13 +99,34 @@ This repository is structured as a monorepo, where each sub-folder represents an
 
 ---
 
-## 5. Quick Start (Local Setup)
+## 5. Non-Functional Requirements (NFRs)
 
-### 5.1. Prerequisites
+The platform is designed and optimized based on the following non-functional benchmarks:
+
+- **Scalability & High Availability:**
+  - Services are completely stateless, enabling horizontal scaling under an Nginx load balancer.
+  - Failures in non-core services (e.g., AI Service chatbot) do not block core transactional flows (e.g., Cart and Order placement).
+- **Latency & Performance:**
+  - Utilizes Redis cache for database query offloading of homepage catalogs and item details.
+  - Employs low-latency RPC pathways (gRPC) for real-time inventory validation checks.
+- **Reliability & Event Consistency:**
+  - Guarantees eventual consistency for checkout and payments using RabbitMQ AMQP messaging retries.
+  - Implements defensive transaction isolation levels on MySQL/PostgreSQL databases to prevent dirty reads.
+- **Security & Vulnerability Mitigation:**
+  - Standardizes OAuth2 JWT access tokens (60-minute lifetime) and refresh tokens (7-day blacklisted blackhole) for client sessions.
+  - Enforces internal RPC authorization locks (`X-Service-Token`) to block unauthorized cross-network access.
+- **Resource Constraints:**
+  - Configures explicit container memory reservations (e.g., 256MB) and hard limits (e.g., 512MB/2.5GB) in Docker Compose configurations to prevent Out-Of-Memory (OOM) host crashes.
+
+---
+
+## 6. Quick Start (Local Setup)
+
+### 6.1. Prerequisites
 - Docker & Docker Compose
 - Node.js (only if running the frontend locally without containers)
 
-### 5.2. Running the Platform
+### 6.2. Running the Platform
 To spin up all services, database instances, brokers, and the gateway automatically, run from the root directory:
 
 ```bash
@@ -117,7 +138,7 @@ Alternatively, run using Docker Compose directly:
 docker compose -f infrastructure/docker-compose.yml up -d
 ```
 
-### 5.3. Tracking Logs
+### 6.3. Tracking Logs
 To stream logs across the entire ecosystem:
 ```bash
 ./run.sh logs
@@ -128,7 +149,7 @@ Or target a specific service:
 docker compose -f infrastructure/docker-compose.yml logs -f <service-name>
 ```
 
-### 5.4. Stopping the System
+### 6.4. Stopping the System
 ```bash
 ./run.sh down
 ```
