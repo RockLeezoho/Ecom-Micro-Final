@@ -109,6 +109,12 @@ The platform is designed and optimized based on the following non-functional ben
 - **Latency & Performance:**
   - Utilizes Redis cache for database query offloading of homepage catalogs and item details.
   - Employs low-latency RPC pathways (gRPC) for real-time inventory validation checks.
+  - Target latency benchmarks:
+    - Page loads and catalog navigation responses: `< 200ms`.
+    - API Gateway routing overhead: `< 10ms`.
+    - AI recommendation scoring (XGBoost inference) response time: `< 50ms`.
+    - Vector search similarity indexing queries (ChromaDB): `< 30ms`.
+  - Throughput support: Capable of sustaining up to `1000 requests per second (RPS)` through connection reuse and optimized keep-alive settings on the Nginx gateway.
 - **Reliability & Event Consistency:**
   - Guarantees eventual consistency for checkout and payments using RabbitMQ AMQP messaging retries.
   - Implements defensive transaction isolation levels on MySQL/PostgreSQL databases to prevent dirty reads.
