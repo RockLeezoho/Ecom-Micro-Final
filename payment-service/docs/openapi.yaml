@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: Payment Service API
+  description: API Specification (OpenAPI/Swagger Spec) for Payment Service.
+  version: 1.0.0
+  contact:
+    name: Hana
+servers:
+  - url: http://localhost:8080/api/payments
+    description: Gateway Server
+  - url: http://localhost:8006/api/payments
+    description: Payment Service Direct Server
+paths:
+  /methods/:
+    get:
+      summary: Lấy danh sách các phương thức thanh toán khả dụng
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethod'
+  /create/:
+    post:
+      summary: Khởi tạo thanh toán cho đơn hàng
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - order_id
+                - amount
+                - method_code
+              properties:
+                order_id:
+                  type: string
+                  format: uuid
+                  example: "8ac2be0f-b4b1-41b9-8e45-8fe1fa4a2cf5"
+                amount:
+                  type: number
+                  example: 1500000.00
+                method_code:
+                  type: string
+                  example: "VNPAY"
+      responses:
+        "201":
+          description: Khởi tạo thanh toán thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+  /qr/:
+    get:
+      summary: Tạo mã QR thanh toán (VietQR)
+      parameters:
+        - name: payment_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tạo mã QR thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  qr_url:
+                    type: string
+                    format: url
+                  qr_data:
+                    type: string
+  /confirm-transfer/:
+    post:
+      summary: Xác nhận chuyển khoản ngân hàng thủ công (COD hoặc bank transfer)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - payment_id
+              properties:
+                payment_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Xác nhận giao dịch thành công
+  /simulate-success/:
+    post:
+      summary: Giả lập thanh toán thành công
+      description: API dùng cho dev/testing để chuyển nhanh giao dịch thanh toán sang trạng thái COMPLETED và kích hoạt event sang RabbitMQ.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - payment_id
+              properties:
+                payment_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Giả lập thanh toán thành công
+  /webhook/:
+    post:
+      summary: Webhook nhận callback từ cổng thanh toán bên thứ ba
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Nhận webhook thành công
+  /health/:
+    get:
+      summary: Kiểm tra sức khỏe dịch vụ
+      responses:
+        "200":
+          description: Dịch vụ hoạt động tốt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        provider:
+          type: string
+        is_active:
+          type: boolean
+    PaymentResponse:
+      type: object
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        reference_number:
+          type: string
+        status:
+          type: string
+          example: "PENDING"
+        checkout_url:
+          type: string
+          format: url

@@ -1,0 +1,154 @@
+openapi: 3.0.3
+info:
+  title: Cart Service API
+  description: API Specification (OpenAPI/Swagger Spec) for Cart Service.
+  version: 1.0.0
+  contact:
+    name: Hana
+servers:
+  - url: http://localhost:8080/api
+    description: Gateway Server
+  - url: http://localhost:8004/api
+    description: Cart Service Direct Server
+paths:
+  /cart/:
+    get:
+      summary: Lấy chi tiết giỏ hàng của người dùng hiện tại
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+  /cart/add/:
+    post:
+      summary: Thêm sản phẩm vào giỏ hàng
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product_id
+                - sales_price
+                - quantity
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                  example: "8ac2be0f-b4b1-41b9-8e45-8fe1fa4a2cf5"
+                sales_price:
+                  type: number
+                  example: 1250000.00
+                quantity:
+                  type: integer
+                  example: 1
+      responses:
+        "201":
+          description: Thêm thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartItem'
+  /cart/update/:
+    post:
+      summary: Cập nhật số lượng sản phẩm trong giỏ hàng
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product_id
+                - quantity
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                  example: "8ac2be0f-b4b1-41b9-8e45-8fe1fa4a2cf5"
+                quantity:
+                  type: integer
+                  example: 3
+      responses:
+        "200":
+          description: Cập nhật thành công
+  /cart/remove/:
+    post:
+      summary: Xóa sản phẩm khỏi giỏ hàng
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product_id
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                  example: "8ac2be0f-b4b1-41b9-8e45-8fe1fa4a2cf5"
+      responses:
+        "200":
+          description: Xóa thành công
+  /health/:
+    get:
+      summary: Kiểm tra sức khỏe dịch vụ
+      responses:
+        "200":
+          description: Dịch vụ hoạt động bình thường
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CartResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product_id:
+          type: string
+          format: uuid
+        sales_price:
+          type: string
+          format: decimal
+        quantity:
+          type: integer
+        subtotal:
+          type: number

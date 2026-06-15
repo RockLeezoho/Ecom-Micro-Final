@@ -1,0 +1,208 @@
+openapi: 3.0.3
+info:
+  title: Product Service API
+  description: API Specification (OpenAPI/Swagger Spec) for Product Service.
+  version: 1.0.0
+  contact:
+    name: Hana
+servers:
+  - url: http://localhost:8080/api
+    description: Gateway Server
+  - url: http://localhost:8003/api
+    description: Product Service Direct Server
+paths:
+  /products/homepage/:
+    get:
+      summary: Lấy danh sách sản phẩm trang chủ
+      description: Lấy danh sách sản phẩm nổi bật và mới nhất hiển thị trên trang chủ (có thể được cache qua Redis).
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest_products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductShort'
+                  featured_products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductShort'
+  /categories/:
+    get:
+      summary: Lấy danh sách danh mục phân cấp
+      description: Trả về cây danh mục sản phẩm (Category Tree).
+      responses:
+        "200":
+          description: Thành công
+  /categories/all/:
+    get:
+      summary: Lấy danh sách toàn bộ danh mục dạng phẳng
+      description: Trả về danh sách tất cả các danh mục dưới dạng phẳng (flat list).
+      responses:
+        "200":
+          description: Thành công
+  /products/list/:
+    get:
+      summary: Tìm kiếm và lọc sản phẩm nâng cao
+      description: Tìm kiếm, lọc và phân trang sản phẩm theo từ khóa, danh mục, khoảng giá, thương hiệu, tác giả, nhà xuất bản, v.v.
+      parameters:
+        - name: search
+          in: query
+          description: Từ khóa tìm kiếm tên/mô tả sản phẩm
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Slug của danh mục sản phẩm
+          schema:
+            type: string
+        - name: min_price
+          in: query
+          schema:
+            type: number
+        - name: max_price
+          in: query
+          schema:
+            type: number
+        - name: brand
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Thành công
+  /products/{slug}/:
+    get:
+      summary: Lấy thông tin chi tiết sản phẩm
+      description: Trả về chi tiết của một sản phẩm dựa trên slug.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thành công
+        "404":
+          description: Không tìm thấy sản phẩm
+  /products/reservations/:
+    post:
+      summary: Tạo giữ kho (Stock Reservation)
+      description: Giữ kho sản phẩm tạm thời cho đơn hàng (thường được gọi từ Order Service).
+      security:
+        - BearerAuth: []
+        - ServiceTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - order_id
+                - items
+              properties:
+                order_id:
+                  type: string
+                  format: uuid
+                  example: "8ac2be0f-b4b1-41b9-8e45-8fe1fa4a2cf5"
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - product_id
+                      - quantity
+                    properties:
+                      product_id:
+                        type: string
+                        example: "prod-123"
+                      quantity:
+                        type: integer
+                        example: 2
+      responses:
+        "201":
+          description: Giữ kho thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: "PENDING"
+        "400":
+          description: Hết hàng / Không đủ số lượng tồn kho
+  /products/reservations/{reservation_id}/confirm/:
+    post:
+      summary: Xác nhận giữ kho
+      description: Chuyển trạng thái giữ kho từ PENDING sang CONFIRMED và trừ trực tiếp tồn kho vật lý (gọi sau khi thanh toán thành công).
+      security:
+        - ServiceTokenAuth: []
+      parameters:
+        - name: reservation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Xác nhận giữ kho thành công
+        "404":
+          description: Không tìm thấy mã giữ kho
+  /health/:
+    get:
+      summary: Kiểm tra sức khỏe dịch vụ
+      responses:
+        "200":
+          description: Dịch vụ hoạt động bình thường
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ServiceTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+  schemas:
+    ProductShort:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        price:
+          type: string
+          format: decimal
+        stock:
+          type: integer
+        main_image_url:
+          type: string
+          format: url

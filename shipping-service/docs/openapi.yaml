@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: Shipping Service API
+  description: API Specification (OpenAPI/Swagger Spec) for Shipping Service.
+  version: 1.0.0
+  contact:
+    name: Hana
+servers:
+  - url: http://localhost:8080/api/shipping
+    description: Gateway Server
+  - url: http://localhost:8007/api/shipping
+    description: Shipping Service Direct Server
+paths:
+  /carriers/:
+    get:
+      summary: Lấy danh sách đơn vị vận chuyển
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Carrier'
+  /methods/:
+    get:
+      summary: Lấy danh sách các phương thức và phí vận chuyển khả dụng
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingMethod'
+  /health/:
+    get:
+      summary: Kiểm tra sức khỏe dịch vụ
+      responses:
+        "200":
+          description: Dịch vụ hoạt động tốt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+components:
+  schemas:
+    Carrier:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        contact_number:
+          type: string
+        is_active:
+          type: boolean
+    ShippingMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        fee:
+          type: string
+          format: decimal
+        is_active:
+          type: boolean

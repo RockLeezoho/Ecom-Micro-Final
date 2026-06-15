@@ -1,0 +1,156 @@
+openapi: 3.0.3
+info:
+  title: AI Service API
+  description: API Specification (OpenAPI/Swagger Spec) for AI Service.
+  version: 1.0.0
+  contact:
+    name: Hana
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Gateway Server
+  - url: http://localhost:8002/api/v1
+    description: AI Service Direct Server
+paths:
+  /recommend:
+    get:
+      summary: Lấy gợi ý sản phẩm cho người dùng (GET)
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: category_key
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                  recommended_product_ids:
+                    type: array
+                    items:
+                      type: string
+    post:
+      summary: Lấy gợi ý sản phẩm dựa trên ngữ cảnh lịch sử người dùng (POST)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: string
+                history_prods:
+                  type: array
+                  items:
+                    type: string
+                history_acts:
+                  type: array
+                  items:
+                    type: string
+                user_query:
+                  type: string
+                category_key:
+                  type: string
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                  products:
+                    type: array
+                    items:
+                      type: string
+  /chatbot:
+    post:
+      summary: Gọi chatbot tư vấn chung
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+      responses:
+        "200":
+          description: Phản hồi từ chatbot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer:
+                    type: string
+                  product_ids:
+                    type: array
+                    items:
+                      type: string
+  /chat:
+    post:
+      summary: Chatbot tương tác với ngữ cảnh sản phẩm (Frontend)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_query
+              properties:
+                user_query:
+                  type: string
+                context_product_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Phản hồi từ chatbot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer:
+                    type: string
+                  product_ids:
+                    type: array
+                    items:
+                      type: string
+  /health:
+    get:
+      summary: Kiểm tra sức khỏe dịch vụ
+      servers:
+        - url: http://localhost:8002
+      responses:
+        "200":
+          description: Dịch vụ hoạt động tốt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"

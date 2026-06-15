@@ -1,0 +1,219 @@
+openapi: 3.0.3
+info:
+  title: Order Service API
+  description: API Specification (OpenAPI/Swagger Spec) for Order Service.
+  version: 1.0.0
+  contact:
+    name: Hana
+servers:
+  - url: http://localhost:8080/api
+    description: Gateway Server
+  - url: http://localhost:8005/api
+    description: Order Service Direct Server
+paths:
+  /orders/:
+    post:
+      summary: Tạo đơn hàng mới (Checkout)
+      description: Khởi tạo đơn hàng từ giỏ hàng. API này sẽ gọi Product Service để giữ kho tạm thời.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address_id
+                - payment_method
+                - shipping_method
+                - items
+              properties:
+                address_id:
+                  type: string
+                  format: uuid
+                  example: "8ac2be0f-b4b1-41b9-8e45-8fe1fa4a2cf5"
+                payment_method:
+                  type: string
+                  enum: [COD, VNPAY]
+                  example: "VNPAY"
+                shipping_method:
+                  type: string
+                  example: "FAST"
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - product_id
+                      - quantity
+                    properties:
+                      product_id:
+                        type: string
+                        example: "prod-123"
+                      quantity:
+                        type: integer
+                        example: 2
+      responses:
+        "201":
+          description: Tạo đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order_id:
+                    type: string
+                    format: uuid
+                  total_amount:
+                    type: string
+                    format: decimal
+                  status:
+                    type: string
+                    example: "PENDING"
+        "400":
+          description: Giữ kho thất bại (hết hàng hoặc không đủ tồn kho)
+  /orders/best-sellers/:
+    get:
+      summary: Lấy danh sách sản phẩm bán chạy nhất
+      description: Thống kê sản phẩm có số lượng bán cao nhất từ lịch sử đơn hàng.
+      responses:
+        "200":
+          description: Thành công
+  /orders/{order_id}/:
+    get:
+      summary: Lấy thông tin chi tiết đơn hàng
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Thành công
+        "404":
+          description: Không tìm thấy đơn hàng
+  /orders/{order_id}/confirm-order/:
+    post:
+      summary: Xác nhận đơn hàng (Admin/Staff)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Đơn hàng đã được xác nhận
+  /orders/{order_id}/reject-order/:
+    post:
+      summary: Hủy đơn hàng (Admin/Staff/User)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Hủy đơn hàng thành công
+  /orders/{order_id}/create-shipment/:
+    post:
+      summary: Tạo vận đơn giao hàng
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tạo vận đơn thành công
+  /orders/{order_id}/confirm-packing/:
+    post:
+      summary: Xác nhận đóng gói thành công
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Xác nhận đóng gói thành công
+  /orders/{order_id}/handover-to-carrier/:
+    post:
+      summary: Bàn giao hàng cho bên vận chuyển
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Đã bàn giao cho đơn vị vận chuyển
+  /payments/callback/:
+    post:
+      summary: Nhận phản hồi thanh toán (Payment Webhook Callback)
+      description: Callback từ dịch vụ thanh toán báo trạng thái thanh toán đơn hàng.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - order_id
+                - status
+              properties:
+                order_id:
+                  type: string
+                  format: uuid
+                  example: "8ac2be0f-b4b1-41b9-8e45-8fe1fa4a2cf5"
+                status:
+                  type: string
+                  enum: [PAID, FAILED]
+                  example: "PAID"
+      responses:
+        "200":
+          description: Xử lý callback thành công
+  /health/:
+    get:
+      summary: Kiểm tra sức khỏe dịch vụ
+      responses:
+        "200":
+          description: Dịch vụ hoạt động bình thường
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
