@@ -20,13 +20,12 @@ Dịch vụ quản lý người dùng (User Service) chịu trách nhiệm xác 
 
 Dưới đây là sơ đồ mô tả các chức năng cốt lõi của hệ thống dành cho từng nhóm tác nhân (Guest, Customer, Staff, Admin):
 
-```plantuml
-@startuml
-left to right direction
-actor "Khách vãng lai (Guest)" as Guest
-actor "Khách hàng (Customer)" as Customer
-actor "Nhân viên (Staff)" as Staff
-actor "Quản trị viên (Admin)" as Admin
+```mermaid
+leftToRightDirection
+actor Guest as "Khách vãng lai (Guest)"
+actor Customer as "Khách hàng (Customer)"
+actor Staff as "Nhân viên (Staff)"
+actor Admin as "Quản trị viên (Admin)"
 
 rectangle "User Service System" {
   usecase UC_Register as "Đăng ký tài khoản"
@@ -62,7 +61,6 @@ Admin --> UC_GetProfile
 Admin --> UC_UpdateProfile
 Admin --> UC_ViewUsers
 Admin --> UC_ManageUsers
-@enduml
 ```
 
 ---
@@ -71,39 +69,22 @@ Admin --> UC_ManageUsers
 
 Kiến trúc bên trong User Service được tổ chức theo mô hình phân lớp (Layered Architecture):
 
-```plantuml
-@startuml
-package "API Gateway / Nginx" {
-  [Gateway]
-}
+```mermaid
+graph TD
+  Gateway[API Gateway / Nginx] -->|HTTP Requests| UserSer[User Service - Django / DRF]
+  
+  subgraph "User Service Container"
+    UserSer --> Auth[Authentication - JWT]
+    UserSer --> Controller[API Controllers / Views]
+    Controller --> Serializer[Serializers / DTOs]
+    Serializer --> Service[Services / Business Logic]
+    Service --> Selector[Selectors / Queries]
+    Service --> Model[Django ORM Models]
+    Selector --> Model
+  end
 
-package "User Service Container (Django / DRF)" {
-  [Authentication - JWT] as Auth
-  [API Controllers / Views] as Controller
-  [Serializers / DTOs] as Serializer
-  [Services / Business Logic] as Service
-  [Selectors / Queries] as Selector
-  [Django ORM Models] as Model
-}
-
-database "User DB - MySQL" {
-  [Database]
-}
-
-cloud "Cloudinary API" {
-  [Cloudinary]
-}
-
-Gateway --> Controller : HTTP Requests
-Controller --> Auth : Authenticate
-Controller --> Serializer
-Serializer --> Service
-Service --> Selector
-Service --> Model
-Selector --> Model
-Model --> Database : SQL Queries
-Service --> Cloudinary : Upload Avatars
-@enduml
+  UserSer -->|SQL| Database[(User DB - MySQL)]
+  UserSer -->|Upload Avatars| Cloudinary[Cloudinary API]
 ```
 
 ---
@@ -112,67 +93,67 @@ Service --> Cloudinary : Upload Avatars
 
 Cấu trúc các lớp thực thể trong User Service (kế thừa từ lớp User mặc định của Django):
 
-```plantuml
-@startuml
-class AbstractUser {
-    +username: String
-    +email: String
-    +first_name: String
-    +last_name: String
-    +password: String
-    +check_password()
-}
+```mermaid
+classDiagram
+    class AbstractUser {
+        <<Django Core>>
+        +username: String
+        +email: String
+        +first_name: String
+        +last_name: String
+        +password: String
+        +check_password()
+    }
+    
+    class User {
+        +id: UUID
+        +phone_number: String
+        +date_of_birth: Date
+        +gender: String
+        +is_active: Boolean
+        +avatar_url: String
+        +role: String
+        +__str__()
+    }
 
-class User {
-    +id: UUID
-    +phone_number: String
-    +date_of_birth: Date
-    +gender: String
-    +is_active: Boolean
-    +avatar_url: String
-    +role: String
-    +__str__()
-}
+    class Admin {
+        +position: String
+    }
 
-class Admin {
-    +position: String
-}
+    class Staff {
+        +employment_type: String
+    }
 
-class Staff {
-    +employment_type: String
-}
+    class Customer {
+        +height: Float
+        +weight: Float
+        +foot_length: Float
+    }
 
-class Customer {
-    +height: Float
-    +weight: Float
-    +foot_length: Float
-}
+    class Address {
+        +id: UUID
+        +address: String
+        +user: User [FK]
+    }
 
-class Address {
-    +id: UUID
-    +address: String
-    +user: User
-}
+    class FavoriteProduct {
+        +id: UUID
+        +customer: User [FK]
+        +product_id: String
+        +name: String
+        +origin: String
+        +price: Decimal
+        +stock: Integer
+        +status: String
+        +created_at: DateTime
+    }
 
-class FavoriteProduct {
-    +id: UUID
-    +customer: User
-    +product_id: String
-    +name: String
-    +origin: String
-    +price: Decimal
-    +stock: Integer
-    +status: String
-    +created_at: DateTime
-}
-
-AbstractUser <|-- User
-User <|-- Admin
-User <|-- Staff
-User <|-- Customer
-User "1" *-- "0..*" Address : user
-User "1" *-- "0..*" FavoriteProduct : customer
-@enduml
+    AbstractUser <|-- User
+    User <|-- Admin
+    User <|-- Staff
+    User <|-- Customer
+    User "1" *-- "0..*" Address
+    User "1" *-- "0..*" FavoriteProduct
 ```
 
 ---
@@ -239,9 +220,19 @@ Hệ thống sử dụng cơ sở dữ liệu quan hệ MySQL với thiết kế
 
 ---
 
-## 3. Quản trị & Vận hành
+## 3. Danh sách API (API Specification)
 
-### 3.1. Hướng dẫn Seed dữ liệu (Database Seeding)
+Chi tiết các Endpoint, đặc tả Request Body, Response mẫu và phân quyền truy cập của User Service được tài liệu hóa riêng biệt tại:
+
+👉 **[Tài liệu API dạng Markdown (API_DOCUMENTATION.md)](API_DOCUMENTATION.md)**
+
+👉 **[Tài liệu OpenAPI Spec dạng YAML (openapi.yaml)](openapi.yaml)**
+
+---
+
+## 4. Quản trị & Vận hành
+
+### 4.1. Hướng dẫn Seed dữ liệu (Database Seeding)
 
 User Service hỗ trợ seed dữ liệu mẫu nhanh chóng thông qua lệnh quản trị Django tùy chỉnh:
 
@@ -262,7 +253,7 @@ docker compose -f infrastructure/docker-compose.yml exec user-service python man
 
 ---
 
-### 3.2. Xem logs của User Service
+### 4.2. Xem logs của User Service
 
 Để theo dõi log hoạt động (Request/Response, SQL query hoặc lỗi runtime) của User Service, chạy lệnh sau từ thư mục gốc:
 
@@ -277,6 +268,6 @@ docker compose -f infrastructure/docker-compose.yml logs -f user-db
 
 ---
 
-## Bản Quyền (Copyright)
+## Copyright
 
-Dự án này được nghiên cứu và phát triển bởi **Rock Lee**.
+Dự án này được nghiên cứu và phát triển bởi **Hana** phục vụ mục đích học tập, trình diễn kỹ thuật và phỏng vấn.

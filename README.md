@@ -184,6 +184,6 @@ Bạn có thể nhấn mạnh các điểm sau:
 - `infrastructure/docker-compose.yml`: cấu hình khởi động toàn bộ services
 - `frontend/README.md`: README riêng của frontend
 
-## Tác Giả & Bản Quyền (Copyright)
+## Copyright
 
 Dự án này được nghiên cứu và phát triển bởi **Hana** phục vụ mục đích học tập, trình diễn kỹ thuật và phỏng vấn.

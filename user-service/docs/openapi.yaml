@@ -1,0 +1,439 @@
+openapi: 3.0.3
+info:
+  title: User Service API
+  description: Tài liệu đặc tả API (OpenAPI/Swagger Spec) cho User Service thuộc hệ thống E-commerce Microservices.
+  version: 1.0.0
+  contact:
+    name: Hana
+servers:
+  - url: http://localhost:8080/api/users
+    description: Gateway Server
+  - url: http://localhost:8001/api/users
+    description: User Service Direct Server
+paths:
+  /auth/register/:
+    post:
+      summary: Đăng ký tài khoản Khách hàng
+      description: Tạo một tài khoản khách hàng mới trong hệ thống.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - email
+                - phone_number
+              properties:
+                username:
+                  type: string
+                  example: customer_test
+                password:
+                  type: string
+                  example: strong_password123
+                email:
+                  type: string
+                  format: email
+                  example: customer@example.com
+                phone_number:
+                  type: string
+                  example: "0987654321"
+      responses:
+        "201":
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  username:
+                    type: string
+                  email:
+                    type: string
+                  phone_number:
+                    type: string
+                  role:
+                    type: string
+                    example: CUSTOMER
+        "400":
+          description: Dữ liệu đầu vào không hợp lệ hoặc username đã tồn tại
+  /auth/login/customer/:
+    post:
+      summary: Đăng nhập Khách hàng
+      description: Đăng nhập và nhận JWT access và refresh tokens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: customer_test
+                password:
+                  type: string
+                  example: strong_password123
+      responses:
+        "200":
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+                    description: JWT Access Token
+                  refresh:
+                    type: string
+                    description: JWT Refresh Token
+        "401":
+          description: Thông tin đăng nhập không chính xác
+  /auth/logout/:
+    post:
+      summary: Đăng xuất tài khoản
+      description: Đưa JWT Refresh Token vào blacklist để vô hiệu hóa phiên làm việc.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh
+              properties:
+                refresh:
+                  type: string
+                  example: eyJhbGciOiJIUzI1...
+      responses:
+        "204":
+          description: Đăng xuất thành công
+        "401":
+          description: Token không hợp lệ hoặc thiếu thông tin xác thực
+  /me/customer/:
+    get:
+      summary: Xem hồ sơ Khách hàng
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Lấy thông tin hồ sơ thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+        "401":
+          description: Chưa xác thực
+    patch:
+      summary: Cập nhật một phần hồ sơ Khách hàng
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                  example: Nguyen
+                last_name:
+                  type: string
+                  example: Van A
+                phone_number:
+                  type: string
+                  example: "0987654321"
+                date_of_birth:
+                  type: string
+                  format: date
+                  example: 2000-01-01
+                gender:
+                  type: string
+                  enum:
+                    - male
+                    - female
+                    - other
+                  example: male
+                height:
+                  type: number
+                  example: 170.5
+                weight:
+                  type: number
+                  example: 65.2
+                foot_length:
+                  type: number
+                  example: 25.5
+                avatar_url:
+                  type: string
+                  format: url
+                  example: https://res.cloudinary.com/...
+      responses:
+        "200":
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+        "401":
+          description: Chưa xác thực
+  /addresses/:
+    get:
+      summary: Lấy danh sách sổ địa chỉ
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+    post:
+      summary: Thêm địa chỉ mới
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+              properties:
+                address:
+                  type: string
+                  example: 123 Đường Trần Phú, Hà Đông, Hà Nội
+      responses:
+        "201":
+          description: Tạo thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+  /addresses/{id}/:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: UUID của địa chỉ
+        schema:
+          type: string
+          format: uuid
+    put:
+      summary: Cập nhật địa chỉ
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+              properties:
+                address:
+                  type: string
+                  example: 456 Đường Nguyễn Trãi, Thanh Xuân, Hà Nội
+      responses:
+        "200":
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+    delete:
+      summary: Xóa địa chỉ
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Xóa thành công
+  /favorites/:
+    get:
+      summary: Lấy danh sách sản phẩm yêu thích
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FavoriteProduct'
+    post:
+      summary: Thêm sản phẩm vào danh sách yêu thích
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FavoriteProductInput'
+      responses:
+        "201":
+          description: Thêm thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteProduct'
+  /favorites/{product_id}/:
+    delete:
+      summary: Xóa sản phẩm khỏi danh sách yêu thích
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          description: Mã định danh sản phẩm cần xóa
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Xóa thành công
+  /health/:
+    get:
+      summary: Kiểm tra sức khỏe dịch vụ (Health Check)
+      responses:
+        "200":
+          description: Dịch vụ hoạt động tốt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CustomerProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        phone_number:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum:
+            - male
+            - female
+            - other
+        avatar_url:
+          type: string
+          format: url
+          nullable: true
+        height:
+          type: number
+          nullable: true
+        weight:
+          type: number
+          nullable: true
+        foot_length:
+          type: number
+          nullable: true
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        address:
+          type: string
+    FavoriteProduct:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product_id:
+          type: string
+        name:
+          type: string
+          nullable: true
+        origin:
+          type: string
+          nullable: true
+        price:
+          type: string
+          format: decimal
+          nullable: true
+        stock:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum:
+            - NEW
+            - SELLING
+            - OUT_OF_STOCK
+            - DISCONTINUED
+        created_at:
+          type: string
+          format: date-time
+    FavoriteProductInput:
+      type: object
+      required:
+        - product_id
+      properties:
+        product_id:
+          type: string
+          example: prod-100
+        name:
+          type: string
+          example: Giày Nike
+        origin:
+          type: string
+          example: Vietnam
+        price:
+          type: number
+          example: 2500000
+        stock:
+          type: integer
+          example: 15
+        status:
+          type: string
+          enum:
+            - NEW
+            - SELLING
+            - OUT_OF_STOCK
+            - DISCONTINUED
+          example: SELLING
