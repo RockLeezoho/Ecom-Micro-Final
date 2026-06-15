@@ -407,6 +407,7 @@ function AppContent() {
     clearSession();
     setCurrentUser(null);
     setCart([]);
+    localStorage.removeItem('becshop_chat_history');
     navigate('/');
   };
 

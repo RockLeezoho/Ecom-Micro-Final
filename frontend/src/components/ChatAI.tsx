@@ -112,6 +112,17 @@ const ChatAI: React.FC<ChatAIProps> = ({ currentUser }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const prevUserRef = useRef(currentUser);
+  useEffect(() => {
+    if (prevUserRef.current && !currentUser) {
+      setMessages([
+        { id: '1', role: 'model', text: `Chào ${pronoun}! Em là Becper - trợ lý ảo của BECShop. Em có thể giúp gì cho ${pronoun} ạ?` }
+      ]);
+      localStorage.removeItem('becshop_chat_history');
+    }
+    prevUserRef.current = currentUser;
+  }, [currentUser, pronoun]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
