@@ -1,6 +1,6 @@
 # User Service
 
-The User Service is responsible for user authentication, authorization, and storing personal profiles for different roles in the e-commerce system: Customers, Staff, and Admins.
+The User Service is responsible for user authentication, authorization, and storing personal profile details for different roles in the e-commerce system: Customers, Staff, and Admins.
 
 ---
 
@@ -16,54 +16,27 @@ The User Service is responsible for user authentication, authorization, and stor
 
 ## 2. System Design
 
-### 2.1. Use Case Diagram
+### 2.1. Core Features & Responsibilities
 
-The flowchart below represents the core business use cases for each actor (Guest, Customer, Staff, Admin) in the system:
+The User Service handles the following core functionalities:
 
-```mermaid
-graph LR
-  subgraph Actors
-    Guest[Guest]
-    Customer[Customer]
-    Staff[Staff]
-    Admin[Admin]
-  end
-
-  subgraph "User Service Functions"
-    UC_Register(Register Account)
-    UC_Login(Login / Get JWT)
-    UC_RefreshToken(Refresh JWT Token)
-    UC_GetProfile(View Profile)
-    UC_UpdateProfile(Update Profile & Avatar)
-    UC_ManageAddress(Manage Shipping Addresses)
-    UC_ManageFavorites(Manage Favorite Products)
-    UC_ViewUsers(View User Directory)
-    UC_ManageUsers(User Administration - CRUD)
-  end
-
-  Guest --> UC_Register
-  Guest --> UC_Login
-
-  Customer --> UC_Login
-  Customer --> UC_RefreshToken
-  Customer --> UC_GetProfile
-  Customer --> UC_UpdateProfile
-  Customer --> UC_ManageAddress
-  Customer --> UC_ManageFavorites
-
-  Staff --> UC_Login
-  Staff --> UC_RefreshToken
-  Staff --> UC_GetProfile
-  Staff --> UC_UpdateProfile
-  Staff --> UC_ViewUsers
-
-  Admin --> UC_Login
-  Admin --> UC_RefreshToken
-  Admin --> UC_GetProfile
-  Admin --> UC_UpdateProfile
-  Admin --> UC_ViewUsers
-  Admin --> UC_ManageUsers
-```
+- **Authentication & Token Management:**
+  - Guest registration (`CUSTOMER` role).
+  - Secure login issuing JWT Access and Refresh tokens.
+  - Session termination (Logout) by blacklisting the Refresh Token.
+  - Standard secure password hashing using Django default PBKDF2/bcrypt.
+- **Role-Based Access Control (RBAC):**
+  - Fine-grained permission system distinguishing `CUSTOMER`, `STAFF`, and `ADMIN` users.
+- **Profile Management:**
+  - Retrieve and update general information (names, email, phone number, gender, date of birth).
+  - Save body measurements (height, weight, foot length) to support shoe/clothing size recommendation algorithms.
+  - Upload and link avatar images powered by Cloudinary.
+- **Address Book Management:**
+  - Full CRUD operations (Create, Read, Update, Delete) on shipping addresses, which integrate directly with checkout workflows.
+- **Favorite Products Listing:**
+  - Let customers save and unsave items to a personalized favorites directory.
+- **Administrative Control (Admin-only):**
+  - Full CRUD access to view, update, and manage accounts of customers, staff, and admins.
 
 ---
 
